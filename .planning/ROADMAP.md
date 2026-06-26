@@ -54,7 +54,7 @@ Plans:
 
 Plans:
 
-- [ ] 02-01: Sockets integration, live bidding state machine, countdown timers, and persistence logic.
+- [x] 02-01: Sockets integration, live bidding state machine, countdown timers, and persistence logic.
 
 ### Phase 3: Results & Polishing
 

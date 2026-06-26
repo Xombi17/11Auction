@@ -5,6 +5,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import { handleLobbyConnection, SocketUserPayload } from "./lobby.js";
+import { handleAuctionConnection } from "./rooms/auction.js";
+import { prisma } from "@bidstand/db";
 
 dotenv.config();
 
@@ -50,9 +52,34 @@ io.on("connection", (socket) => {
 
   // Handle lobby joining and presence
   handleLobbyConnection(socket, user);
+  
+  // Handle live auction room interactions
+  handleAuctionConnection(socket, user, io);
 });
 
+async function recoverActiveRooms() {
+  try {
+    const result = await prisma.room.updateMany({
+      where: {
+        status: "AUCTION"
+      },
+      data: {
+        status: "PAUSED",
+        timerEndsAt: null
+      }
+    });
+    if (result.count > 0) {
+      console.log(`Recovered ${result.count} room(s) from AUCTION to PAUSED state.`);
+    }
+  } catch (err) {
+    console.error("Failed to recover active rooms:", err);
+  }
+}
+
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
-  console.log(`Realtime Socket.io server running on port ${PORT}`);
+recoverActiveRooms().then(() => {
+  server.listen(PORT, () => {
+    console.log(`Realtime Socket.io server running on port ${PORT}`);
+  });
 });
+

@@ -19,6 +19,7 @@ export default function LobbyPage({ params }: { params: { code: string } }) {
   const [socketStatus, setSocketStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
   const [isCommissioner, setIsCommissioner] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [socket, setSocket] = useState<any>(null);
 
   useEffect(() => {
     let active = true;
@@ -29,6 +30,11 @@ export default function LobbyPage({ params }: { params: { code: string } }) {
         if (!active) return;
 
         if (data.ok) {
+          if (data.room.status === "AUCTION" || data.room.status === "PAUSED") {
+            router.push(`/room/${code}`);
+            return;
+          }
+
           setRoom(data.room);
           setTeams(data.teams);
           setParticipants(data.participants);
@@ -65,21 +71,26 @@ export default function LobbyPage({ params }: { params: { code: string } }) {
           }
 
           // Connect Socket
-          const socket = connectSocket(token);
+          const s = connectSocket(token);
+          setSocket(s);
 
-          socket.on("connect", () => {
+          s.on("connect", () => {
             setSocketStatus("connected");
           });
 
-          socket.on("disconnect", () => {
+          s.on("disconnect", () => {
             setSocketStatus("disconnected");
           });
 
-          socket.on("room:state", (state: any) => {
+          s.on("room:state", (state: any) => {
             if (state.ok) {
               setRoom(state.room);
               setTeams(state.teams);
               setParticipants(state.participants);
+
+              if (state.room.status === "AUCTION" || state.room.status === "PAUSED") {
+                router.push(`/room/${code}`);
+              }
             }
           });
 
@@ -117,7 +128,9 @@ export default function LobbyPage({ params }: { params: { code: string } }) {
   };
 
   const handleStartAuction = () => {
-    alert("Auction starting is part of Phase 2 logic! Lobby room presence is functional 🚀");
+    if (socket) {
+      socket.emit("room:start", { roomCode: code });
+    }
   };
 
   if (loading) {

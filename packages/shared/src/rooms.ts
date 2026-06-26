@@ -100,3 +100,26 @@ export const lobbySnapshotSchema = z.object({
 });
 
 export type LobbySnapshot = z.infer<typeof lobbySnapshotSchema>;
+
+export const bidPlaceSchema = z.object({
+  roomCode: z.string().length(6, "Room code must be exactly 6 characters"),
+  itemId: z.string().min(1, "Item ID is required"),
+  teamId: z.string().min(1, "Team ID is required"),
+  amount: z.number().int().positive("Bid amount must be a positive integer"),
+});
+
+export type BidPlaceInput = z.infer<typeof bidPlaceSchema>;
+
+export const roomActionSchema = z.object({
+  roomCode: z.string().length(6, "Room code must be exactly 6 characters"),
+});
+
+export type RoomActionInput = z.infer<typeof roomActionSchema>;
+
+export const forceResolveSchema = z.object({
+  roomCode: z.string().length(6, "Room code must be exactly 6 characters"),
+  outcome: z.enum(["SOLD", "UNSOLD"]),
+});
+
+export type ForceResolveInput = z.infer<typeof forceResolveSchema>;
+
