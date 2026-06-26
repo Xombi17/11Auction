@@ -6,7 +6,7 @@ Bidstand is built iteratively in 3 key phases. We establish the database models 
 
 ## Phases
 
-- [ ] **Phase 1: Foundation & Lobby** - Database setup, REST APIs for room creation, and lobby joining
+- [x] **Phase 1: Foundation & Lobby** - Database setup, REST APIs for room creation, and lobby joining
 - [ ] **Phase 2: Live Realtime Auction Room** - Authoritative bidding, timers, socket server, and state transitions
 - [ ] **Phase 3: Results & Polishing** - Squad results dashboard, stats, and E2E multi-session testing
 
@@ -28,13 +28,13 @@ Bidstand is built iteratively in 3 key phases. We establish the database models 
 Plans:
 
 **Wave 1**
-- [ ] 01-01: Walking-skeleton workspace scaffold and package verification gate.
+- [x] 01-01: Walking-skeleton workspace scaffold and package verification gate.
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 01-02: Prisma schema, shared contracts, Commissioner auth, room creation, and join APIs.
+- [x] 01-02: Prisma schema, shared contracts, Commissioner auth, room creation, and join APIs.
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 01-03: Create/join/lobby UI plus realtime lobby presence updates.
+- [x] 01-03: Create/join/lobby UI plus realtime lobby presence updates.
 
 ### Phase 2: Live Realtime Auction Room
 
@@ -77,6 +77,6 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Lobby | 0/3 | Planned | - |
-| 2. Live Realtime Auction Room | 0/1 | Not started | - |
+| 1. Foundation & Lobby | 3/3 | Completed | 2026-06-26 |
+| 2. Live Realtime Auction Room | 0/1 | Planned | - |
 | 3. Results & Polishing | 0/1 | Not started | - |

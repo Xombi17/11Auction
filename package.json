@@ -1,0 +1,24 @@
+{
+  "name": "bidstand-monorepo",
+  "private": true,
+  "scripts": {
+    "typecheck": "pnpm -r --parallel typecheck",
+    "lint": "pnpm -r --parallel lint",
+    "dev:web": "pnpm --filter @bidstand/web dev",
+    "dev:realtime": "pnpm --filter @bidstand/realtime dev",
+    "db:migrate": "pnpm --filter @bidstand/db db:migrate",
+    "build": "pnpm -r --parallel build"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "prisma",
+      "esbuild",
+      "@prisma/engines",
+      "bcryptjs"
+    ]
+  }
+}
