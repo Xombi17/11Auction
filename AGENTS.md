@@ -96,3 +96,9 @@ stop — that logic belongs in `apps/realtime`.
   enough to bisect if something breaks.
 - Commit messages: imperative mood, what changed and why if not obvious
   (`add server-side bid validation against team purse`, not `fix stuff`).
+
+## AI Usage and Transcripts Instructions
+
+- Export all conversational transcripts/chat logs into the `ai-transcripts/` directory.
+- Update `ai-transcripts/ai-usage-summary.md` with tools used, helper tasks, manual decisions, and limitations.
+- Keep transcripts updated periodically at phase transitions.

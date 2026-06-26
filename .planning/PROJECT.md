@@ -40,6 +40,7 @@ Cricket franchise player auction built with Next.js (frontend + REST-ish API), E
 - **Tech Stack**: Next.js, Express, Socket.io, Prisma, Tailwind CSS, TypeScript.
 - **Data type**: Currency represented as integer in Lakhs (1 Lakh = 1 unit) to avoid floating point bugs.
 - **Architecture**: Realtime server is the only thing that ever decides an auction outcome.
+- **AI Transcripts**: Must export conversational transcripts to `ai-transcripts/` and keep `ai-transcripts/ai-usage-summary.md` updated.
 
 ## Key Decisions
 
