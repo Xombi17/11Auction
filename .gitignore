@@ -9,3 +9,4 @@ build/
 .env.production.local
 *.log
 .claude/
+.agents/skills/

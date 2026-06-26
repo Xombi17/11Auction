@@ -6,7 +6,7 @@ A realtime auction room for live player auctions (cricket-franchise-style/IPL-st
 
 ### 1. Install Dependencies
 ```bash
-npx pnpm install
+pnpm install
 ```
 
 ### 2. Configure Environment Variables
@@ -20,26 +20,30 @@ Ensure that the `ROOM_JWT_SECRET` is identical in both `.env` files.
 ### 3. Run Database Migrations
 Make sure your PostgreSQL database is running and the `DATABASE_URL` is set correctly in both `.env` files, then run:
 ```bash
-npx pnpm --filter @bidstand/db db:migrate
+pnpm db:migrate
+# Or directly: pnpm --filter @bidstand/db db:migrate
 ```
 
 ### 4. Run Development Servers
-Start both servers simultaneously:
+Start both servers (you can run these in separate terminals):
 - **Next.js Web Server** (on `http://localhost:3000`):
   ```bash
-  npx pnpm --filter @bidstand/web dev
+  pnpm dev:web
+  # Or directly: pnpm --filter @bidstand/web dev
   ```
 - **Socket.io Realtime Server** (on `http://localhost:4000`):
   ```bash
-  npx pnpm --filter @bidstand/realtime dev
+  pnpm dev:realtime
+  # Or directly: pnpm --filter @bidstand/realtime dev
   ```
 
 ## Quality and Testing
 - Run all typechecks:
   ```bash
-  npx pnpm typecheck
+  pnpm typecheck
   ```
 - Run linter checks:
   ```bash
-  npx pnpm lint
+  pnpm lint
   ```
+

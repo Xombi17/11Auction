@@ -20,5 +20,9 @@
       "@prisma/engines",
       "bcryptjs"
     ]
-  }
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }
