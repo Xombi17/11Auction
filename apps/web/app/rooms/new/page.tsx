@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
-import { Trash2, Plus, UserPlus, Users, Sparkles, Award } from "lucide-react";
+import { Trash, Plus, UserPlus, Users, Sparkle, Trophy } from "@phosphor-icons/react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 
 interface VisualTeam {
   id: string;
@@ -85,6 +87,7 @@ const formatPrice = (lakhs: number) => {
 
 export default function CreateRoomPage() {
   const router = useRouter();
+  const containerRef = useRef<HTMLDivElement>(null);
   
   // Room basic config
   const [name, setName] = useState("");
@@ -110,6 +113,14 @@ export default function CreateRoomPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useGSAP(() => {
+    gsap.fromTo(
+      ".gsap-slide-up",
+      { opacity: 0, y: 40 },
+      { opacity: 1, y: 0, duration: 0.8, stagger: 0.1, ease: "power4.out" }
+    );
+  }, { scope: containerRef });
 
   // Add a team to list
   const handleAddTeam = (e?: React.FormEvent) => {
@@ -215,319 +226,322 @@ export default function CreateRoomPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-10 w-full flex-1">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400">
-            Create Auction Room
-          </h1>
-          <p className="text-slate-400 mt-1">Configure room settings, franchises, and the draft pool.</p>
-        </div>
-        <div className="flex items-center gap-2 bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2 text-xs text-slate-400 backdrop-blur-md">
-          <Sparkles className="w-4 h-4 text-blue-400 animate-pulse" />
-          <span>Realtime Authority Enabled</span>
-        </div>
+    <div className="min-h-screen bg-[#050508] w-full text-white selection:bg-fuchsia-500 selection:text-white relative overflow-x-hidden" ref={containerRef}>
+      
+      {/* Background Gradients */}
+      <div className="fixed inset-0 z-0 pointer-events-none opacity-40 mix-blend-screen">
+        <div className="absolute top-[10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-600/30 blur-[150px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-fuchsia-600/30 blur-[150px]" />
       </div>
 
-      {error && (
-        <div className="bg-rose-950/30 border border-rose-900/50 text-rose-400 px-4 py-3 rounded-xl mb-8 flex items-center justify-between">
-          <span>{error}</span>
-          <button onClick={() => setError("")} className="text-rose-400 hover:text-rose-200">×</button>
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-20 w-full flex-1">
+        
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-12 gap-6 gsap-slide-up">
+          <div>
+            <h1 className="text-[clamp(2.5rem,5vw,4rem)] font-black leading-none tracking-tighter mb-2">
+              Create Auction
+            </h1>
+            <p className="text-xl text-white/50">Configure room settings, franchises, and draft pool.</p>
+          </div>
+          <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-full px-6 py-3 backdrop-blur-xl">
+            <Sparkle weight="fill" className="w-5 h-5 text-indigo-400" />
+            <span className="text-sm font-bold tracking-widest uppercase">Realtime Server Setup</span>
+          </div>
         </div>
-      )}
 
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Room Settings */}
-        <div className="bg-slate-950 border border-slate-900 rounded-2xl p-6 backdrop-blur-md relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
-          <h2 className="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-400" />
-            Room Settings
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Room Name</label>
-              <input
-                type="text"
-                placeholder="e.g. IPL 2026 Mega Auction"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition"
-                required
-              />
-            </div>
+        {error && (
+          <div className="bg-rose-950/40 border border-rose-900/50 text-rose-400 px-6 py-4 rounded-2xl mb-8 flex items-center justify-between font-bold backdrop-blur-sm gsap-slide-up">
+            <span>{error}</span>
+            <button onClick={() => setError("")} className="text-rose-400 hover:text-white transition">×</button>
+          </div>
+        )}
 
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Default Purse</label>
-              <div className="relative">
+        <form onSubmit={handleSubmit} className="space-y-8">
+          
+          {/* Room Settings */}
+          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8 md:p-12 backdrop-blur-xl gsap-slide-up relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
+            <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
+              <Sparkle weight="fill" className="text-indigo-400" /> Room Settings
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-3">Room Name</label>
                 <input
-                  type="number"
-                  value={defaultPurse}
-                  onChange={(e) => setDefaultPurse(parseInt(e.target.value, 10))}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-4 pr-16 py-3 text-slate-100 focus:outline-none focus:border-indigo-500 transition"
+                  type="text"
+                  placeholder="e.g. IPL 2026 Mega Auction"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-fuchsia-500 focus:bg-white/5 transition-all text-lg font-medium"
                   required
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">Lakhs</span>
               </div>
-              <span className="text-xs text-slate-500 mt-1 block">e.g. 10000 = ₹100 Crore</span>
-            </div>
 
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Squad Size Cap</label>
-              <input
-                type="number"
-                value={squadSizeCap}
-                onChange={(e) => setSquadSizeCap(parseInt(e.target.value, 10))}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-indigo-500 transition"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="mt-6 border-t border-slate-900 pt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Bid Timer</label>
-              <div className="flex items-center gap-4">
-                <input
-                  type="range"
-                  min="5"
-                  max="60"
-                  step="5"
-                  value={timerSeconds}
-                  onChange={(e) => setTimerSeconds(parseInt(e.target.value, 10))}
-                  className="flex-1 accent-indigo-500"
-                />
-                <span className="bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-850 text-sm font-bold text-indigo-400 w-16 text-center">
-                  {timerSeconds}s
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center">
-              <p className="text-xs text-slate-500 leading-relaxed">
-                The timer resets automatically whenever a team places a higher bid. When the timer hits 0, the active player is sold to the highest bidder.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Team Franchise Configuration */}
-        <div className="bg-slate-950 border border-slate-900 rounded-2xl p-6 backdrop-blur-md relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
-          
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-400" />
-              Franchise Teams ({teams.length})
-            </h2>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleLoadPresetTeams}
-                className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition px-2.5 py-1 rounded hover:bg-blue-500/10"
-              >
-                Load Presets
-              </button>
-              <button
-                type="button"
-                onClick={handleClearTeams}
-                className="text-xs font-semibold text-slate-500 hover:text-slate-400 transition px-2.5 py-1 rounded hover:bg-slate-500/10"
-              >
-                Clear All
-              </button>
-            </div>
-          </div>
-
-          {/* Add Team Input */}
-          <div className="flex gap-2 max-w-md mb-6">
-            <input
-              type="text"
-              placeholder="Enter franchise name..."
-              value={newTeamName}
-              onChange={(e) => setNewTeamName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTeam())}
-              className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition"
-            />
-            <button
-              type="button"
-              onClick={() => handleAddTeam()}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 rounded-xl flex items-center gap-1.5 text-sm transition"
-            >
-              <Plus className="w-4 h-4" />
-              Add
-            </button>
-          </div>
-
-          {/* Teams Visual List */}
-          {teams.length === 0 ? (
-            <div className="text-center py-10 bg-slate-900/30 border border-dashed border-slate-850 rounded-xl">
-              <Users className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-              <p className="text-slate-500 text-sm">No franchise teams added yet.</p>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2.5">
-              {teams.map((team, idx) => (
-                <div
-                  key={team.id}
-                  className="group flex items-center gap-2 bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 hover:border-slate-700 px-4 py-2.5 rounded-xl transition shadow-lg"
-                >
-                  <div className="w-5 h-5 rounded-full bg-indigo-500/10 flex items-center justify-center text-[10px] font-bold text-indigo-400">
-                    {idx + 1}
-                  </div>
-                  <span className="text-sm font-medium text-slate-200">{team.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveTeam(team.id)}
-                    className="text-slate-500 hover:text-rose-400 transition ml-1"
-                  >
-                    ×
-                  </button>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-3">Default Purse</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={defaultPurse}
+                    onChange={(e) => setDefaultPurse(parseInt(e.target.value, 10))}
+                    className="w-full bg-black/40 border border-white/10 rounded-2xl pl-6 pr-20 py-4 text-white focus:outline-none focus:border-fuchsia-500 focus:bg-white/5 transition-all text-lg font-medium"
+                    required
+                  />
+                  <span className="absolute right-6 top-1/2 -translate-y-1/2 text-xs font-bold text-white/40 tracking-widest">LAKHS</span>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                <span className="text-xs text-white/30 mt-2 block font-medium">e.g. 10000 = ₹100 Crore</span>
+              </div>
 
-        {/* Player Draft Pool */}
-        <div className="bg-slate-950 border border-slate-900 rounded-2xl p-6 backdrop-blur-md relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-              <Award className="w-5 h-5 text-purple-400" />
-              Draft Pool ({players.length} Players)
-            </h2>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleLoadPresetPlayers}
-                className="text-xs font-semibold text-purple-400 hover:text-purple-300 transition px-2.5 py-1 rounded hover:bg-purple-500/10"
-              >
-                Load Star Presets
-              </button>
-              <button
-                type="button"
-                onClick={handleClearPlayers}
-                className="text-xs font-semibold text-slate-500 hover:text-slate-400 transition px-2.5 py-1 rounded hover:bg-slate-500/10"
-              >
-                Clear All
-              </button>
-            </div>
-          </div>
-
-          {/* Add Player Panel */}
-          <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-5 mb-8 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div className="md:col-span-2">
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Player Name</label>
-              <input
-                type="text"
-                placeholder="e.g. AB de Villiers"
-                value={newPlayerName}
-                onChange={(e) => setNewPlayerName(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Role / Category</label>
-              <select
-                value={newPlayerCategory}
-                onChange={(e) => setNewPlayerCategory(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition"
-              >
-                <option value="Batsman">Batsman</option>
-                <option value="Bowler">Bowler</option>
-                <option value="All-rounder">All-rounder</option>
-                <option value="Wicketkeeper">Wicketkeeper</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Base Price (Lakhs)</label>
-              <div className="flex gap-2">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-3">Squad Size Cap</label>
                 <input
                   type="number"
-                  value={newPlayerBasePrice}
-                  onChange={(e) => setNewPlayerBasePrice(parseInt(e.target.value, 10) || 0)}
-                  className="w-20 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition text-center"
+                  value={squadSizeCap}
+                  onChange={(e) => setSquadSizeCap(parseInt(e.target.value, 10))}
+                  className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-fuchsia-500 focus:bg-white/5 transition-all text-lg font-medium"
+                  required
                 />
+              </div>
+            </div>
+
+            <div className="mt-8 pt-8 border-t border-white/10 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-3">Bid Timer</label>
+                <div className="flex items-center gap-6">
+                  <input
+                    type="range"
+                    min="5"
+                    max="60"
+                    step="5"
+                    value={timerSeconds}
+                    onChange={(e) => setTimerSeconds(parseInt(e.target.value, 10))}
+                    className="flex-1 accent-fuchsia-500 h-2 bg-white/10 rounded-full appearance-none outline-none cursor-pointer"
+                  />
+                  <span className="bg-white/10 px-4 py-2 rounded-xl font-mono text-xl font-bold text-fuchsia-400 w-20 text-center border border-white/10">
+                    {timerSeconds}s
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-white/40 leading-relaxed max-w-md">
+                  The timer resets automatically whenever a team places a higher bid. When the timer hits 0, the active player is sold to the highest bidder.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Teams Config */}
+          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8 md:p-12 backdrop-blur-xl gsap-slide-up relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-fuchsia-500/10 rounded-full blur-[100px] pointer-events-none" />
+            
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-bold flex items-center gap-3">
+                <Users weight="fill" className="text-fuchsia-400" /> Franchises ({teams.length})
+              </h2>
+              <div className="flex gap-4">
                 <button
                   type="button"
-                  onClick={() => handleAddPlayer()}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl flex items-center justify-center gap-1 text-sm transition"
+                  onClick={handleLoadPresetTeams}
+                  className="text-sm font-bold tracking-widest uppercase text-white/50 hover:text-white transition"
                 >
-                  <UserPlus className="w-4 h-4" />
-                  Add Player
+                  Load Presets
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearTeams}
+                  className="text-sm font-bold tracking-widest uppercase text-rose-400/50 hover:text-rose-400 transition"
+                >
+                  Clear All
                 </button>
               </div>
             </div>
+
+            <div className="flex flex-col md:flex-row gap-4 mb-8">
+              <input
+                type="text"
+                placeholder="Enter franchise name..."
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTeam())}
+                className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-fuchsia-500 focus:bg-white/5 transition-all font-medium text-lg"
+              />
+              <button
+                type="button"
+                onClick={() => handleAddTeam()}
+                className="bg-white text-black hover:bg-neutral-200 font-bold px-8 py-4 rounded-2xl flex items-center justify-center gap-2 transition-all text-lg"
+              >
+                <Plus weight="bold" />
+                Add Team
+              </button>
+            </div>
+
+            {teams.length === 0 ? (
+              <div className="text-center py-16 bg-black/20 border border-dashed border-white/10 rounded-2xl">
+                <Users weight="fill" className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                <p className="text-white/40 text-lg font-medium">No franchise teams added yet.</p>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-4">
+                {teams.map((team, idx) => (
+                  <div
+                    key={team.id}
+                    className="group flex items-center gap-3 bg-black/40 border border-white/10 hover:border-white/30 px-6 py-4 rounded-2xl transition-all"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-fuchsia-500/20 flex items-center justify-center text-xs font-bold text-fuchsia-400 font-mono">
+                      {idx + 1}
+                    </div>
+                    <span className="text-base font-bold">{team.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTeam(team.id)}
+                      className="text-white/20 hover:text-rose-400 transition-colors ml-2"
+                    >
+                      <Trash weight="bold" size={20} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Players Visual Grid */}
-          {players.length === 0 ? (
-            <div className="text-center py-16 bg-slate-900/30 border border-dashed border-slate-850 rounded-xl">
-              <Award className="w-10 h-10 text-slate-700 mx-auto mb-2" />
-              <p className="text-slate-500 text-sm">No players added to the draft pool yet.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              {players.map((player) => {
-                const style = CATEGORY_STYLES[player.category] || CATEGORY_STYLES.Batsman;
-                return (
-                  <div
-                    key={player.id}
-                    className="bg-slate-900/60 border border-slate-850/70 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-700/60 transition group shadow-md"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${style.gradient} flex items-center justify-center text-sm font-bold text-white shadow-lg shadow-indigo-950/20`}>
-                        {getInitials(player.name)}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePlayer(player.id)}
-                        className="text-slate-500 hover:text-rose-400 p-1 rounded-lg hover:bg-slate-850 transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+          {/* Draft Pool */}
+          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8 md:p-12 backdrop-blur-xl gsap-slide-up relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-                    <div className="mt-4">
-                      <h3 className="font-bold text-slate-200 group-hover:text-white transition line-clamp-1">{player.name}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${style.bg} ${style.text}`}>
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-bold flex items-center gap-3">
+                <Trophy weight="fill" className="text-emerald-400" /> Draft Pool ({players.length})
+              </h2>
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={handleLoadPresetPlayers}
+                  className="text-sm font-bold tracking-widest uppercase text-white/50 hover:text-white transition"
+                >
+                  Load Presets
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearPlayers}
+                  className="text-sm font-bold tracking-widest uppercase text-rose-400/50 hover:text-rose-400 transition"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-black/30 border border-white/5 rounded-[2rem] p-6 md:p-8 mb-10 grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+              <div className="md:col-span-5">
+                <label className="block text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-3">Player Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. AB de Villiers"
+                  value={newPlayerName}
+                  onChange={(e) => setNewPlayerName(e.target.value)}
+                  className="w-full bg-black/60 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-emerald-500 focus:bg-white/5 transition-all text-lg font-medium"
+                />
+              </div>
+
+              <div className="md:col-span-3">
+                <label className="block text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-3">Category</label>
+                <select
+                  value={newPlayerCategory}
+                  onChange={(e) => setNewPlayerCategory(e.target.value)}
+                  className="w-full bg-black/60 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-emerald-500 focus:bg-white/5 transition-all text-lg font-medium appearance-none"
+                >
+                  <option value="Batsman">Batsman</option>
+                  <option value="Bowler">Bowler</option>
+                  <option value="All-rounder">All-rounder</option>
+                  <option value="Wicketkeeper">Wicketkeeper</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-4">
+                <label className="block text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-3">Base Price (Lakhs)</label>
+                <div className="flex gap-4">
+                  <input
+                    type="number"
+                    value={newPlayerBasePrice}
+                    onChange={(e) => setNewPlayerBasePrice(parseInt(e.target.value, 10) || 0)}
+                    className="w-24 bg-black/60 border border-white/10 rounded-2xl px-4 py-4 text-white focus:outline-none focus:border-emerald-500 focus:bg-white/5 transition-all text-lg font-mono text-center font-bold"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAddPlayer()}
+                    className="flex-1 bg-white text-black hover:bg-neutral-200 font-bold rounded-2xl flex items-center justify-center gap-2 transition-all text-lg"
+                  >
+                    <UserPlus weight="bold" />
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {players.length === 0 ? (
+              <div className="text-center py-20 bg-black/20 border border-dashed border-white/10 rounded-[2rem]">
+                <Trophy weight="fill" className="w-16 h-16 text-white/20 mx-auto mb-6" />
+                <p className="text-white/40 text-xl font-medium">No players in draft pool.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {players.map((player) => {
+                  const style = CATEGORY_STYLES[player.category] || CATEGORY_STYLES.Batsman;
+                  return (
+                    <div
+                      key={player.id}
+                      className="bg-black/40 border border-white/10 rounded-[2rem] p-6 flex flex-col justify-between hover:border-white/30 hover:bg-white/5 transition-all group"
+                    >
+                      <div className="flex items-start justify-between mb-6">
+                        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${style.gradient} flex items-center justify-center text-xl font-black text-white shadow-lg`}>
+                          {getInitials(player.name)}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePlayer(player.id)}
+                          className="text-white/20 hover:text-rose-400 p-2 rounded-xl hover:bg-white/10 transition-colors"
+                        >
+                          <Trash weight="bold" size={20} />
+                        </button>
+                      </div>
+
+                      <div>
+                        <h3 className="text-xl font-bold text-white mb-3 truncate">{player.name}</h3>
+                        <span className={`text-xs font-bold tracking-widest uppercase px-3 py-1.5 rounded-full ${style.bg} ${style.text} border border-current`}>
                           {player.category}
                         </span>
                       </div>
-                    </div>
 
-                    <div className="mt-4 pt-3 border-t border-slate-850 flex items-center justify-between">
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Base Price</span>
-                      <span className="text-xs font-bold text-slate-300">{formatPrice(player.basePrice)}</span>
+                      <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between">
+                        <span className="text-xs text-white/40 font-bold tracking-widest uppercase">Base Price</span>
+                        <span className="text-lg font-mono font-bold">{formatPrice(player.basePrice)}</span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
-        {/* Form Actions */}
-        <div className="flex gap-4">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="flex-1 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 font-semibold py-3.5 rounded-xl transition"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold py-3.5 rounded-xl transition disabled:opacity-50 shadow-xl shadow-indigo-950/10"
-          >
-            {loading ? "Initializing Draft Pool..." : "Create Room"}
-          </button>
-        </div>
-      </form>
+          <div className="flex flex-col md:flex-row gap-6 pt-8 pb-32 gsap-slide-up">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="md:w-1/3 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold py-6 rounded-full transition-all text-xl"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:scale-[1.02] text-white font-black py-6 rounded-full transition-all disabled:opacity-50 text-xl shadow-[0_0_40px_rgba(192,38,211,0.3)]"
+            >
+              {loading ? "INITIALIZING SERVER..." : "LAUNCH AUCTION ROOM"}
+            </button>
+          </div>
+
+        </form>
+      </div>
     </div>
   );
 }
