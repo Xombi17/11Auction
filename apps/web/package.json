@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "pnpm --filter @bidstand/db build && pnpm --filter @bidstand/shared build && next build",
+    "build": "pnpm --filter @bidstand/db build && pnpm --filter @bidstand/shared build && pnpm exec prisma generate --schema=../../packages/db/prisma/schema.prisma && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "lint": "next lint"
@@ -34,6 +34,7 @@
     "eslint": "^8.56.0",
     "eslint-config-next": "^14.2.3",
     "postcss": "^8.4.38",
+    "prisma": "^5.13.0",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.4.5"
   }
