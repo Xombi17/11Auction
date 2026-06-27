@@ -10,3 +10,6 @@ build/
 *.log
 .claude/
 .agents/skills/
+.vercel
+.env*.local
+packages/db/src/generated/

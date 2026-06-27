@@ -4,7 +4,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "prisma generate && tsc -b",
+    "build": "prisma generate && tsc -b && cp -r src/generated dist/",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'no lint for db yet'",
     "db:migrate": "prisma migrate dev"
