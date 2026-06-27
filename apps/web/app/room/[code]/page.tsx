@@ -252,7 +252,7 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
   const hasPurse = purseRemaining >= nextBidAmount;
   
   // Squad Size Validation
-  const mySquadSize = myTeam ? myTeam.players.length : 0;
+  const mySquadSize = myTeam?.players ? myTeam.players.length : 0;
   const underSquadCap = mySquadSize < (room?.squadSizeCap ?? 18);
 
   // Category Role Cap Validation
@@ -262,7 +262,7 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
     const playerRole = currentItem.category;
     const categoryCap = caps[playerRole];
     if (categoryCap) {
-      const categoryCount = myTeam.players.filter((p: any) => p.category === playerRole).length;
+      const categoryCount = myTeam.players ? myTeam.players.filter((p: any) => p.category === playerRole).length : 0;
       underRoleCap = categoryCount < categoryCap.max;
     }
   }
@@ -381,7 +381,7 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
                       {team.name}
                     </span>
                     <span className="text-[10px] text-slate-500">
-                      {team.players.length}/{room?.squadSizeCap}
+                      {(team.players || []).length}/{room?.squadSizeCap}
                     </span>
                   </div>
                   <span className="text-sm font-mono font-bold text-slate-100 mt-1">

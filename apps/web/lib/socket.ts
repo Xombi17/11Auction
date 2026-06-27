@@ -13,7 +13,7 @@ export function connectSocket(token: string): Socket {
     auth: {
       token,
     },
-    transports: ["websocket"],
+    transports: ["polling", "websocket"],
   });
 
   return socket;

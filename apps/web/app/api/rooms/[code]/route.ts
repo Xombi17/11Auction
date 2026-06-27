@@ -23,7 +23,8 @@ export async function GET(
       include: {
         teams: {
           include: {
-            ownerParticipant: true
+            ownerParticipant: true,
+            players: true
           }
         },
         participants: true
@@ -90,7 +91,13 @@ export async function GET(
         purseTotal: t.purseTotal,
         purseRemaining: t.purseRemaining,
         ownerParticipantId: t.ownerParticipantId,
-        ownerParticipantName: t.ownerParticipant?.displayName || null
+        ownerParticipantName: t.ownerParticipant?.displayName || null,
+        players: t.players.map(p => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          soldPrice: p.soldPrice
+        }))
       })),
       participants: room.participants.map(p => ({
         id: p.id,

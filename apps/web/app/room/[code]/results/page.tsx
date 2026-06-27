@@ -152,7 +152,7 @@ export default function ResultsPage({ params }: { params: { code: string } }) {
             {teams.map((team: any) => {
               const spent = team.purseTotal - team.purseRemaining;
               const spentPercent = Math.min(100, Math.max(0, (spent / team.purseTotal) * 100));
-              const squadCapPercent = Math.min(100, Math.max(0, (team.players.length / (room?.squadSizeCap || 18)) * 100));
+              const squadCapPercent = Math.min(100, Math.max(0, (((team.players || []).length) / (room?.squadSizeCap || 18)) * 100));
 
               return (
                 <div
@@ -171,7 +171,7 @@ export default function ResultsPage({ params }: { params: { code: string } }) {
                         </p>
                       </div>
                       <span className="bg-[#1B2233] text-slate-300 border border-slate-700/60 font-mono text-xs px-2.5 py-1 rounded-md font-bold">
-                        {team.players.length} / {room?.squadSizeCap}
+                        {(team.players || []).length} / {room?.squadSizeCap}
                       </span>
                     </div>
 
@@ -196,7 +196,7 @@ export default function ResultsPage({ params }: { params: { code: string } }) {
                       <div className="flex justify-between text-xs font-mono">
                         <span className="text-slate-400">Squad Capacity</span>
                         <span className="text-slate-200">
-                          {team.players.length} / {room?.squadSizeCap} slots
+                          {(team.players || []).length} / {room?.squadSizeCap} slots
                         </span>
                       </div>
                       <div className="w-full bg-[#1B2233] rounded-full h-2 overflow-hidden">
@@ -210,10 +210,10 @@ export default function ResultsPage({ params }: { params: { code: string } }) {
                     {/* Squad Members */}
                     <div className="space-y-2 pt-2 border-t border-[#262E40]">
                       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                        Squad Rosters ({team.players.length})
+                        Squad Rosters ({(team.players || []).length})
                       </h4>
                       <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
-                        {team.players.map((player: any) => (
+                        {(team.players || []).map((player: any) => (
                           <div
                             key={player.id}
                             className="bg-[#1B2233]/40 hover:bg-[#1B2233] border border-[#262E40]/60 hover:border-slate-700/80 rounded-xl p-2.5 flex justify-between items-center transition"
@@ -229,7 +229,7 @@ export default function ResultsPage({ params }: { params: { code: string } }) {
                             </div>
                           </div>
                         ))}
-                        {team.players.length === 0 && (
+                        {(team.players || []).length === 0 && (
                           <div className="text-center py-8 text-xs text-slate-600 italic">
                             No players bought.
                           </div>
