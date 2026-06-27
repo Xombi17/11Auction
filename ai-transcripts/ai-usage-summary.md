@@ -17,6 +17,7 @@ What AI helped with:
 - Building Next.js routes for Commissioner auth, room creation wizard, room joining, and Lobby UI
 - Implementing the live bidding state machine, server countdown timers, and active state transitions in Phase 2
 - Building the `/api/rooms/[code]/results` API and detailed frontend results page with live socket connection in Phase 3
+- Creating the production deployment configurations and fixing Next.js monorepo build errors by adding `prisma generate` directly to the `@bidstand/db` build pipeline
 
 Important manual decisions:
 - Proceeded with Phase 1 planning without a `CONTEXT.md` from discuss-phase.
@@ -25,6 +26,8 @@ Important manual decisions:
 - Replaced NextAuth with custom signed JWT tokens to make integration fast and extremely robust in development.
 - Modified the join response payload to return the signed token in JSON to avoid cookie sharing issues across localhost ports.
 - Designed results page with a fallback polling system (every 3 seconds) for users without a socket connection token.
+- Configured packages/db build script to run `prisma generate` dynamically so that client generation succeeds automatically inside Vercel's build pipeline.
 
 Known limitations:
-- None identified for Phase 3. The system implements all PRD and user flow requirements.
+- Vercel's serverless/edge runtime is stateless and short-lived, meaning the stateful Express/Socket.io server must be deployed separately on a persistent server platform like Railway or Render.
+
