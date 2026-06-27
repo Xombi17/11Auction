@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { signupSchema } from "@bidstand/shared";
 import { prisma } from "@bidstand/db";
 import bcryptjs from "bcryptjs";
+import { signCommissionerToken } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,7 +40,15 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({
+    // Sign Commissioner JWT (auto-login after signup)
+    const token = await signCommissionerToken({
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: "COMMISSIONER",
+    });
+
+    const response = NextResponse.json({
       ok: true,
       user: {
         id: user.id,
@@ -47,6 +56,16 @@ export async function POST(req: NextRequest) {
         name: user.name,
       },
     });
+
+    // Set HTTP-only cookie
+    response.cookies.set("commissioner_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+
+    return response;
   } catch (error: any) {
     console.error("Signup error:", error);
     return NextResponse.json(

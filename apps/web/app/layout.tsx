@@ -1,12 +1,30 @@
 import "./globals.css";
 import React from "react";
-import { Outfit } from "next/font/google";
+import { Inter, Archivo, IBM_Plex_Mono } from "next/font/google";
 
-const outfit = Outfit({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap",
+});
+
+const archivo = Archivo({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["700", "800", "900"],
+  display: "swap",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  weight: ["400", "500", "600"],
+  display: "swap",
+});
 
 export const metadata = {
   title: "Bidstand — Realtime Player Auction",
-  description: "Elite realtime IPL-style player auction room",
+  description: "Run live IPL-style player auctions with realtime bidding, squad budgets, and instant results.",
 };
 
 export default function RootLayout({
@@ -15,8 +33,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${outfit.className} min-h-screen bg-[#09090b] text-white flex flex-col antialiased selection:bg-white selection:text-black`}>
+    <html lang="en" className={`${inter.variable} ${archivo.variable} ${ibmPlexMono.variable}`}>
+      <body className="min-h-dvh bg-[#0B0F17] text-[#F4F6FA] font-sans antialiased selection:bg-[#F5B83D] selection:text-[#0B0F17]">
         {children}
       </body>
     </html>

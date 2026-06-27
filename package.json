@@ -7,7 +7,7 @@
     "dev:web": "pnpm --filter @bidstand/web dev",
     "dev:realtime": "pnpm --filter @bidstand/realtime dev",
     "db:migrate": "pnpm --filter @bidstand/db db:migrate",
-    "build": "pnpm -r --parallel build"
+    "build": "pnpm --filter @bidstand/db build && pnpm --filter @bidstand/shared build && pnpm --filter @bidstand/web build"
   },
   "devDependencies": {
     "typescript": "^5.4.5"

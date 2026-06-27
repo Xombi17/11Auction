@@ -1,403 +1,377 @@
 "use client";
 
-import React, { useRef, useState, useLayoutEffect } from "react";
+import React, { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import gsap from "gsap";
-import { useGSAP } from "@gsap/react";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { Lightning, ShieldCheck, Sword, Users, X, ArrowRight } from "@phosphor-icons/react";
 import { apiRequest } from "@/lib/api";
+import { Zap, X, ArrowRight, Gavel, Users, Radio } from "lucide-react";
 
-gsap.registerPlugin(ScrollTrigger);
+type AuthMode = "login" | "signup";
 
 export default function LandingPage() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const horizontalRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Modals state
-  const [showJoinModal, setShowJoinModal] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  // Dialog refs
+  const joinDialogRef = useRef<HTMLDialogElement>(null);
+  const authDialogRef = useRef<HTMLDialogElement>(null);
 
-  // Forms state
+  // Join form state
   const [roomCode, setRoomCode] = useState("");
   const [joinError, setJoinError] = useState("");
   const [joinLoading, setJoinLoading] = useState(false);
 
-  const [isLogin, setIsLogin] = useState(true);
+  // Auth form state
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
-  useGSAP(() => {
-    // Reveal text
-    gsap.utils.toArray(".scrub-text").forEach((text: any) => {
-      gsap.fromTo(
-        text,
-        { opacity: 0.1 },
-        {
-          opacity: 1,
-          scrollTrigger: {
-            trigger: text,
-            start: "top 80%",
-            end: "bottom 40%",
-            scrub: true,
-          },
-        }
-      );
-    });
+  const openJoin = () => {
+    setJoinError("");
+    joinDialogRef.current?.showModal();
+  };
 
-    // Image scale and fade
-    gsap.utils.toArray(".gsap-img").forEach((img: any) => {
-      gsap.fromTo(
-        img,
-        { scale: 0.8, opacity: 0.2 },
-        {
-          scale: 1,
-          opacity: 1,
-          scrollTrigger: {
-            trigger: img,
-            start: "top 90%",
-            end: "bottom 20%",
-            scrub: true,
-          },
-        }
-      );
-    });
+  const closeJoin = () => {
+    joinDialogRef.current?.close();
+  };
 
-    // Horizontal Scroll Section
-    if (horizontalRef.current) {
-      const panels = gsap.utils.toArray(".horizontal-panel");
-      gsap.to(panels, {
-        xPercent: -100 * (panels.length - 1),
-        ease: "none",
-        scrollTrigger: {
-          trigger: horizontalRef.current,
-          pin: true,
-          scrub: 1,
-          snap: 1 / (panels.length - 1),
-          end: () => "+=" + horizontalRef.current!.offsetWidth * panels.length
-        }
-      });
-    }
+  const openAuth = (mode: AuthMode = "login") => {
+    setAuthMode(mode);
+    setAuthError("");
+    authDialogRef.current?.showModal();
+  };
 
-  }, { scope: containerRef });
+  const closeAuth = () => {
+    authDialogRef.current?.close();
+  };
+
+  const validateRoomCode = (code: string) => {
+    const cleaned = code.trim().toUpperCase();
+    if (!cleaned) return "Room code is required";
+    if (cleaned.length !== 6) return "Room code must be exactly 6 characters";
+    if (!/^[A-Z0-9]+$/.test(cleaned)) return "Room code must be letters and numbers only";
+    return "";
+  };
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (roomCode.length !== 6) {
-      setJoinError("Room code must be exactly 6 characters");
+    const error = validateRoomCode(roomCode);
+    if (error) {
+      setJoinError(error);
       return;
     }
+
     setJoinError("");
     setJoinLoading(true);
+
     try {
-      const data = await apiRequest(`/api/rooms/${roomCode.toUpperCase()}`, "GET");
+      const code = roomCode.trim().toUpperCase();
+      const data = await apiRequest(`/api/rooms/${code}`, "GET");
       if (data.ok) {
-        router.push(`/join/${roomCode.toUpperCase()}`);
+        router.push(`/join/${code}`);
       }
-    } catch (err: any) {
-      setJoinError(err.message || "Room not found");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Room not found";
+      setJoinError(message);
     } finally {
       setJoinLoading(false);
     }
   };
 
+  const validateAuth = () => {
+    if (!email.trim()) return "Email is required";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Enter a valid email address";
+    if (!password) return "Password is required";
+    if (password.length < 6) return "Password must be at least 6 characters";
+    if (authMode === "signup" && !name.trim()) return "Name is required";
+    return "";
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    const error = validateAuth();
+    if (error) {
+      setAuthError(error);
+      return;
+    }
+
     setAuthError("");
     setAuthLoading(true);
+
     try {
-      if (isLogin) {
-        const data = await apiRequest("/api/auth/login", "POST", { email, password });
-        if (data.ok) {
-          router.push("/dashboard");
-        }
-      } else {
-        const data = await apiRequest("/api/auth/signup", "POST", { email, password, name });
-        if (data.ok) {
-          setIsLogin(true);
-          setAuthError("Account created! Please log in.");
-        }
+      const payload = authMode === "login"
+        ? { email, password }
+        : { email, password, name };
+      const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/signup";
+      const data = await apiRequest(endpoint, "POST", payload);
+      if (data.ok) {
+        router.push("/dashboard");
       }
-    } catch (err: any) {
-      setAuthError(err.message || "Authentication failed");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Authentication failed";
+      setAuthError(message);
     } finally {
       setAuthLoading(false);
     }
   };
 
+  const toggleAuthMode = () => {
+    setAuthMode((prev) => (prev === "login" ? "signup" : "login"));
+    setAuthError("");
+  };
+
   return (
-    <main className="overflow-x-hidden w-full max-w-full bg-[#050508] text-white selection:bg-fuchsia-500 selection:text-white relative" ref={containerRef}>
-      
-      {/* Mesh Gradient Backgrounds */}
-      <div className="fixed inset-0 z-0 pointer-events-none opacity-40 mix-blend-screen">
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-600/30 blur-[120px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-fuchsia-600/30 blur-[150px]" />
-        <div className="absolute top-[40%] left-[30%] w-[40%] h-[40%] rounded-full bg-emerald-500/20 blur-[100px]" />
+    <div className="min-h-dvh flex flex-col bg-[#0B0F17] text-[#F4F6FA]">
+      {/* Background glow */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-[#F5B83D]/5 rounded-full blur-[120px]" />
       </div>
 
-      {/* Navigation (Glass Pill) */}
-      <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full px-8 py-4 flex items-center justify-between w-[calc(100%-2rem)] max-w-5xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
-        <span className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-          <Lightning weight="fill" className="text-fuchsia-400" /> BIDSTAND
-        </span>
-        <div className="flex items-center gap-4 md:gap-8">
-          <button onClick={() => setShowLoginModal(true)} className="hidden md:block text-sm font-medium text-white/70 hover:text-white transition">
-            Commissioner Login
-          </button>
-          <button onClick={() => setShowJoinModal(true)} className="bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white px-6 py-2.5 rounded-full text-sm font-bold hover:shadow-[0_0_20px_rgba(192,38,211,0.5)] transition-all">
-            Join Room
-          </button>
-        </div>
-      </nav>
-
-      {/* Attention (Hero) */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center pt-32 pb-32 px-4 z-10">
-        <div className="text-center w-full max-w-6xl mx-auto">
-          <h1 className="text-[clamp(3.5rem,7vw,7.5rem)] font-extrabold leading-[0.95] tracking-tighter mb-12 drop-shadow-2xl">
-            The elite auction platform <br/>
-            for <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-purple-400 to-indigo-400">modern franchises.</span>
-          </h1>
-          <div className="flex flex-col md:flex-row items-center justify-center gap-6">
-            <button 
-              onClick={() => setShowJoinModal(true)} 
-              className="bg-white text-black w-full md:w-auto px-12 py-5 rounded-full text-lg font-bold hover:scale-105 transition-transform duration-300"
+      {/* Header */}
+      <header className="relative z-10 w-full border-b border-[#262E40]/60 bg-[#0B0F17]/80 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <a href="/" className="flex items-center gap-2 group">
+            <div className="flex items-center justify-center size-9 rounded-lg bg-[#F5B83D] text-[#0B0F17]">
+              <Gavel className="size-5" aria-hidden="true" />
+            </div>
+            <span className="text-xl font-bold tracking-tight font-[family-name:var(--font-display)]">BIDSTAND</span>
+          </a>
+          <nav className="flex items-center gap-3">
+            <button
+              onClick={() => openAuth("login")}
+              className="hidden sm:inline-flex h-10 px-4 items-center justify-center rounded-lg text-sm font-medium text-[#9AA4B8] hover:text-[#F4F6FA] transition-colors"
             >
-              Join Live Auction
+              Commissioner Login
             </button>
-            <button 
-              onClick={() => setShowLoginModal(true)} 
-              className="bg-white/5 backdrop-blur-md border border-white/20 text-white w-full md:w-auto px-12 py-5 rounded-full text-lg font-bold hover:bg-white/10 transition-colors duration-300"
+            <button
+              onClick={openJoin}
+              className="inline-flex h-10 px-4 items-center justify-center rounded-lg text-sm font-medium bg-[#F5B83D] text-[#0B0F17] hover:bg-[#F5B83D]/90 transition-colors"
+            >
+              Join Room
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      {/* Main content */}
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-16">
+        <div className="w-full max-w-3xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1B2233] border border-[#262E40] text-[#F5B83D] text-xs font-medium uppercase tracking-wider mb-8">
+            <Radio className="size-3.5" aria-hidden="true" />
+            Live Player Auctions
+          </div>
+
+          <h1 className="text-balance text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[0.95] mb-6 font-[family-name:var(--font-display)]">
+            Run realtime auctions <br className="hidden sm:block" />
+            that <span className="text-[#F5B83D]">feel alive</span>.
+          </h1>
+
+          <p className="text-pretty text-lg sm:text-xl text-[#9AA4B8] max-w-2xl mx-auto mb-12 leading-relaxed">
+            Commissioners set the room. Team owners bid live. Spectators watch every
+            hammer drop in perfect sync.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button
+              onClick={openJoin}
+              className="w-full sm:w-auto inline-flex h-14 px-8 items-center justify-center gap-2 rounded-xl bg-[#F5B83D] text-[#0B0F17] text-lg font-bold hover:bg-[#F5B83D]/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5B83D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0F17]"
+            >
+              <Users className="size-5" aria-hidden="true" />
+              Join a Room
+            </button>
+            <button
+              onClick={() => openAuth("signup")}
+              className="w-full sm:w-auto inline-flex h-14 px-8 items-center justify-center gap-2 rounded-xl bg-[#1B2233] border border-[#262E40] text-[#F4F6FA] text-lg font-bold hover:bg-[#262E40] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5B83D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0F17]"
             >
               Host an Auction
+              <ArrowRight className="size-5" aria-hidden="true" />
             </button>
           </div>
+
+          {/* Trust line */}
+          <p className="mt-8 text-sm text-[#5C667A]">
+            No signup needed to bid. Commissioners manage rooms with a free account.
+          </p>
         </div>
-      </section>
+      </main>
 
-      {/* Infinite Marquee */}
-      <section className="py-20 border-y border-white/5 overflow-hidden flex whitespace-nowrap opacity-60 bg-black/40 backdrop-blur-sm z-10 relative">
-        <div className="animate-[marquee_25s_linear_infinite] flex items-center gap-24 shrink-0">
-          <span className="text-4xl font-bold tracking-tight uppercase">High Performance WebSockets</span>
-          <span className="text-4xl font-bold tracking-tight uppercase text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-500 to-indigo-500">Millisecond Precision</span>
-          <span className="text-4xl font-bold tracking-tight uppercase">Secure Realtime Bidding</span>
-          <span className="text-4xl font-bold tracking-tight uppercase text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">Zero Latency Sync</span>
+      {/* Footer */}
+      <footer className="relative z-10 w-full border-t border-[#262E40]/60 py-8">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-[#5C667A]">
+          <span className="flex items-center gap-2">
+            <Zap className="size-4 text-[#F5B83D]" aria-hidden="true" />
+            Bidstand
+          </span>
+          <span>Built for live franchise auctions.</span>
         </div>
-        <div className="animate-[marquee_25s_linear_infinite] flex items-center gap-24 shrink-0 pl-24">
-          <span className="text-4xl font-bold tracking-tight uppercase">High Performance WebSockets</span>
-          <span className="text-4xl font-bold tracking-tight uppercase text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-500 to-indigo-500">Millisecond Precision</span>
-          <span className="text-4xl font-bold tracking-tight uppercase">Secure Realtime Bidding</span>
-          <span className="text-4xl font-bold tracking-tight uppercase text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">Zero Latency Sync</span>
-        </div>
-      </section>
-
-      {/* GSAP Horizontal Scroll Section */}
-      <div className="overflow-x-hidden z-10 relative bg-black/50">
-        <section ref={horizontalRef} className="h-screen flex flex-nowrap w-[400vw]">
-          <div className="horizontal-panel w-screen h-screen flex flex-col justify-center items-center p-12 bg-[#0a0a0f]">
-            <h2 className="text-6xl md:text-8xl font-black mb-8">01. Setup</h2>
-            <p className="text-2xl text-white/60 max-w-2xl text-center">Configure your franchise teams and draft pool in seconds with our cinematic builder.</p>
-          </div>
-          <div className="horizontal-panel w-screen h-screen flex flex-col justify-center items-center p-12 bg-indigo-950/20">
-            <h2 className="text-6xl md:text-8xl font-black mb-8 text-indigo-400">02. Connect</h2>
-            <p className="text-2xl text-white/60 max-w-2xl text-center">Team owners join via a secure 6-digit code. WebSockets ensure perfect synchronization.</p>
-          </div>
-          <div className="horizontal-panel w-screen h-screen flex flex-col justify-center items-center p-12 bg-fuchsia-950/20">
-            <h2 className="text-6xl md:text-8xl font-black mb-8 text-fuchsia-400">03. Bid Wars</h2>
-            <p className="text-2xl text-white/60 max-w-2xl text-center">Experience the adrenaline of live bidding with millisecond precision and automatic timer resets.</p>
-          </div>
-          <div className="horizontal-panel w-screen h-screen flex flex-col justify-center items-center p-12 bg-emerald-950/20">
-            <h2 className="text-6xl md:text-8xl font-black mb-8 text-emerald-400">04. Glory</h2>
-            <p className="text-2xl text-white/60 max-w-2xl text-center">Build your dream roster and dominate the league. The ultimate franchise warfare.</p>
-          </div>
-        </section>
-      </div>
-
-      {/* Interest (Gapless Bento Grid) */}
-      <section className="py-32 md:py-48 px-4 max-w-7xl mx-auto z-10 relative">
-        <h2 className="text-5xl md:text-7xl font-extrabold mb-24 text-center scrub-text tracking-tighter">
-          Engineered for <br/> <span className="italic text-indigo-400">intense bidding wars.</span>
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 auto-rows-[450px] gap-2 grid-flow-dense">
-          
-          {/* Card 1 */}
-          <div className="md:col-span-2 group relative overflow-hidden bg-neutral-900 rounded-3xl flex items-end p-12 border border-white/5">
-            <img src="https://picsum.photos/seed/auction/1920/1080" className="absolute inset-0 w-full h-full object-cover mix-blend-luminosity opacity-30 group-hover:scale-110 group-hover:opacity-50 transition-all duration-1000 ease-out gsap-img" alt="Auction" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent" />
-            <div className="relative z-10 w-full max-w-lg">
-              <Lightning weight="fill" className="text-fuchsia-500 w-12 h-12 mb-8" />
-              <h3 className="text-4xl font-bold mb-4">Realtime WebSockets</h3>
-              <p className="text-white/60 text-xl leading-relaxed">Experience zero latency syncing across all connected clients. When a bid drops, everyone sees it instantly.</p>
-            </div>
-          </div>
-
-          {/* Card 2 */}
-          <div className="md:col-span-1 md:row-span-2 group relative overflow-hidden bg-neutral-900 rounded-3xl flex items-center justify-center p-12 border border-white/5">
-            <img src="https://picsum.photos/seed/security/800/1200" className="absolute inset-0 w-full h-full object-cover mix-blend-luminosity opacity-30 group-hover:scale-110 group-hover:opacity-50 transition-all duration-1000 ease-out gsap-img" alt="Security" />
-            <div className="absolute inset-0 bg-black/60 group-hover:bg-black/40 transition-colors duration-1000" />
-            <div className="relative z-10 text-center">
-              <ShieldCheck weight="fill" className="text-emerald-400 w-16 h-16 mb-8 mx-auto" />
-              <h3 className="text-4xl font-bold mb-6">Bulletproof Security</h3>
-              <p className="text-white/60 text-xl leading-relaxed">Cryptographically signed tokens ensure your purse limits are strictly enforced server-side.</p>
-            </div>
-          </div>
-
-          {/* Card 3 */}
-          <div className="md:col-span-1 group relative overflow-hidden bg-gradient-to-br from-indigo-600 to-purple-800 text-white rounded-3xl flex items-start p-12 border border-white/10">
-            <div className="relative z-10 w-full">
-              <Sword weight="fill" className="text-white w-12 h-12 mb-8" />
-              <h3 className="text-4xl font-bold mb-4">Franchise Warfare</h3>
-              <p className="text-white/80 text-xl leading-relaxed">Build your ultimate dream team with precise purse management.</p>
-            </div>
-          </div>
-
-          {/* Card 4 */}
-          <div className="md:col-span-1 group relative overflow-hidden bg-neutral-900 rounded-3xl flex items-end p-12 border border-white/5">
-            <img src="https://picsum.photos/seed/crowd/800/800" className="absolute inset-0 w-full h-full object-cover mix-blend-luminosity opacity-30 group-hover:scale-110 group-hover:opacity-50 transition-all duration-1000 ease-out gsap-img" alt="Crowd" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
-            <div className="relative z-10 w-full">
-              <Users weight="fill" className="text-indigo-400 w-12 h-12 mb-8" />
-              <h3 className="text-4xl font-bold mb-4">Spectator Mode</h3>
-              <p className="text-white/60 text-xl leading-relaxed">Let thousands watch the drama unfold with view-only connections.</p>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* Action (Footer) */}
-      <footer className="py-40 flex flex-col items-center justify-center text-center px-4 bg-black relative z-10 overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[1px] bg-gradient-to-r from-transparent via-fuchsia-500 to-transparent" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-fuchsia-600/20 blur-[100px] pointer-events-none" />
-
-        <h2 className="text-[clamp(4rem,10vw,12rem)] font-black leading-none tracking-tighter mb-16 z-10 drop-shadow-2xl">
-          START NOW
-        </h2>
-        <button 
-          onClick={() => setShowLoginModal(true)} 
-          className="group relative bg-white text-black px-12 py-6 rounded-full text-2xl font-black hover:scale-105 transition-all duration-500 z-10 flex items-center gap-4"
-        >
-          Create Commissioner Account
-          <ArrowRight weight="bold" className="group-hover:translate-x-2 transition-transform" />
-        </button>
       </footer>
 
-      {/* MODALS */}
-      {showJoinModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-[2rem] p-12 w-full max-w-lg relative shadow-[0_0_100px_rgba(192,38,211,0.2)]">
-            <button onClick={() => setShowJoinModal(false)} className="absolute top-8 right-8 text-white/50 hover:text-white transition">
-              <X weight="bold" size={28} />
+      {/* Join Room Dialog */}
+      <dialog
+        ref={joinDialogRef}
+        onClose={() => setJoinError("")}
+        className="m-auto w-full max-w-md p-0 rounded-2xl bg-[#131826] border border-[#262E40] text-[#F4F6FA] shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+      >
+        <div className="p-6 sm:p-8">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold font-[family-name:var(--font-display)]">Join a Room</h2>
+              <p className="text-[#9AA4B8] text-sm mt-1">Enter the 6-character room code to enter the auction.</p>
+            </div>
+            <button
+              type="button"
+              onClick={closeJoin}
+              aria-label="Close join dialog"
+              className="inline-flex items-center justify-center size-9 rounded-lg text-[#9AA4B8] hover:text-[#F4F6FA] hover:bg-[#1B2233] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5B83D]"
+            >
+              <X className="size-5" aria-hidden="true" />
             </button>
-            <h2 className="text-4xl font-bold mb-3">Join Room</h2>
-            <p className="text-white/50 mb-10 text-lg">Enter the 6-character room code to join the live auction.</p>
-            
-            <form onSubmit={handleJoin} className="space-y-6">
+          </div>
+
+          <form onSubmit={handleJoin} className="space-y-5">
+            <div>
+              <label htmlFor="room-code" className="block text-sm font-medium text-[#9AA4B8] mb-2">
+                Room Code
+              </label>
+              <input
+                id="room-code"
+                type="text"
+                inputMode="text"
+                autoComplete="off"
+                maxLength={6}
+                placeholder="ABC123"
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                className="w-full h-14 px-4 rounded-xl bg-[#0B0F17] border border-[#262E40] text-center text-2xl font-medium tracking-[0.2em] uppercase font-[family-name:var(--font-mono)] tabular-nums text-[#F4F6FA] placeholder:text-[#5C667A] focus:outline-none focus:border-[#F5B83D] focus:ring-1 focus:ring-[#F5B83D] transition-colors"
+              />
+            </div>
+
+            {joinError && (
+              <p className="text-sm text-[#E3564B] text-center" role="alert">
+                {joinError}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={joinLoading}
+              className="w-full h-14 rounded-xl bg-[#F5B83D] text-[#0B0F17] font-bold text-lg hover:bg-[#F5B83D]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5B83D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#131826]"
+            >
+              {joinLoading ? "Connecting..." : "Enter Room"}
+            </button>
+          </form>
+        </div>
+      </dialog>
+
+      {/* Auth Dialog */}
+      <dialog
+        ref={authDialogRef}
+        onClose={() => setAuthError("")}
+        className="m-auto w-full max-w-md p-0 rounded-2xl bg-[#131826] border border-[#262E40] text-[#F4F6FA] shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+      >
+        <div className="p-6 sm:p-8">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold font-[family-name:var(--font-display)]">
+                {authMode === "login" ? "Commissioner Login" : "Create Commissioner Account"}
+              </h2>
+              <p className="text-[#9AA4B8] text-sm mt-1">
+                {authMode === "login"
+                  ? "Log in to manage your auction rooms."
+                  : "Sign up to create and host auction rooms."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeAuth}
+              aria-label="Close auth dialog"
+              className="inline-flex items-center justify-center size-9 rounded-lg text-[#9AA4B8] hover:text-[#F4F6FA] hover:bg-[#1B2233] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5B83D]"
+            >
+              <X className="size-5" aria-hidden="true" />
+            </button>
+          </div>
+
+          <form onSubmit={handleAuth} className="space-y-5">
+            {authMode === "signup" && (
               <div>
+                <label htmlFor="auth-name" className="block text-sm font-medium text-[#9AA4B8] mb-2">
+                  Full Name
+                </label>
                 <input
+                  id="auth-name"
                   type="text"
-                  placeholder="e.g. ABC123"
-                  maxLength={6}
-                  value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                  className="w-full bg-white/5 border border-white/20 rounded-2xl px-6 py-5 text-3xl font-mono tracking-[0.3em] text-center text-white focus:outline-none focus:border-fuchsia-500 focus:bg-white/10 transition-all uppercase"
+                  autoComplete="name"
+                  placeholder="Jane Smith"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full h-12 px-4 rounded-xl bg-[#0B0F17] border border-[#262E40] text-[#F4F6FA] placeholder:text-[#5C667A] focus:outline-none focus:border-[#F5B83D] focus:ring-1 focus:ring-[#F5B83D] transition-colors"
                 />
               </div>
-              {joinError && <p className="text-rose-400 text-sm text-center font-medium">{joinError}</p>}
-              <button
-                type="submit"
-                disabled={joinLoading}
-                className="w-full bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white font-bold py-5 rounded-2xl text-xl transition-all disabled:opacity-50 hover:shadow-[0_0_30px_rgba(192,38,211,0.4)]"
-              >
-                {joinLoading ? "Connecting..." : "Enter Room"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+            )}
 
-      {showLoginModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-[2rem] p-12 w-full max-w-lg relative shadow-[0_0_100px_rgba(79,70,229,0.2)]">
-            <button onClick={() => setShowLoginModal(false)} className="absolute top-8 right-8 text-white/50 hover:text-white transition">
-              <X weight="bold" size={28} />
+            <div>
+              <label htmlFor="auth-email" className="block text-sm font-medium text-[#9AA4B8] mb-2">
+                Email Address
+              </label>
+              <input
+                id="auth-email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full h-12 px-4 rounded-xl bg-[#0B0F17] border border-[#262E40] text-[#F4F6FA] placeholder:text-[#5C667A] focus:outline-none focus:border-[#F5B83D] focus:ring-1 focus:ring-[#F5B83D] transition-colors"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="auth-password" className="block text-sm font-medium text-[#9AA4B8] mb-2">
+                Password
+              </label>
+              <input
+                id="auth-password"
+                type="password"
+                autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full h-12 px-4 rounded-xl bg-[#0B0F17] border border-[#262E40] text-[#F4F6FA] placeholder:text-[#5C667A] focus:outline-none focus:border-[#F5B83D] focus:ring-1 focus:ring-[#F5B83D] transition-colors"
+              />
+            </div>
+
+            {authError && (
+              <p className="text-sm text-[#E3564B] text-center" role="alert">
+                {authError}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={authLoading}
+              className="w-full h-14 rounded-xl bg-[#F5B83D] text-[#0B0F17] font-bold text-lg hover:bg-[#F5B83D]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5B83D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#131826]"
+            >
+              {authLoading
+                ? "Authenticating..."
+                : authMode === "login"
+                  ? "Log In"
+                  : "Create Account"}
             </button>
-            
-            <div className="mb-10">
-              <h2 className="text-4xl font-bold mb-3">{isLogin ? "Welcome Back" : "Host Setup"}</h2>
-              <p className="text-white/50 text-lg">{isLogin ? "Log in to your commissioner account." : "Create your commissioner account."}</p>
-            </div>
+          </form>
 
-            <form onSubmit={handleAuth} className="space-y-5">
-              {!isLogin && (
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Full Name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-white/5 border border-white/20 rounded-2xl px-6 py-5 text-lg text-white focus:outline-none focus:border-indigo-500 focus:bg-white/10 placeholder:text-white/30 transition-all"
-                    required
-                  />
-                </div>
-              )}
-              <div>
-                <input
-                  type="email"
-                  placeholder="Email Address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-white/5 border border-white/20 rounded-2xl px-6 py-5 text-lg text-white focus:outline-none focus:border-indigo-500 focus:bg-white/10 placeholder:text-white/30 transition-all"
-                  required
-                />
-              </div>
-              <div>
-                <input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/5 border border-white/20 rounded-2xl px-6 py-5 text-lg text-white focus:outline-none focus:border-indigo-500 focus:bg-white/10 placeholder:text-white/30 transition-all"
-                  required
-                />
-              </div>
-
-              {authError && <p className="text-rose-400 text-sm text-center font-medium">{authError}</p>}
-
-              <button
-                type="submit"
-                disabled={authLoading}
-                className="w-full bg-white text-black font-bold py-5 rounded-2xl text-xl transition-all disabled:opacity-50 hover:scale-[1.02] mt-4"
-              >
-                {authLoading ? "Authenticating..." : isLogin ? "Log In" : "Register"}
-              </button>
-            </form>
-
-            <div className="mt-8 text-center">
-              <button
-                onClick={() => {
-                  setIsLogin(!isLogin);
-                  setAuthError("");
-                }}
-                className="text-base text-white/50 hover:text-white transition font-medium"
-              >
-                {isLogin ? "Need an account? Sign up" : "Already have an account? Log in"}
-              </button>
-            </div>
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={toggleAuthMode}
+              className="text-sm text-[#9AA4B8] hover:text-[#F4F6FA] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5B83D] rounded"
+            >
+              {authMode === "login"
+                ? "Need an account? Sign up"
+                : "Already have an account? Log in"}
+            </button>
           </div>
         </div>
-      )}
-
-      {/* Marquee Keyframes */}
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes marquee {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-100%); }
-        }
-      `}} />
-    </main>
+      </dialog>
+    </div>
   );
 }

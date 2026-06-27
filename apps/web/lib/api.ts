@@ -5,6 +5,7 @@ export async function apiRequest(url: string, method: string, body?: any) {
       "Content-Type": "application/json",
     },
     body: body ? JSON.stringify(body) : undefined,
+    credentials: "include",
   });
 
   const data = await res.json();

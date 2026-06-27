@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -b",
+    "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'no lint for realtime yet'",
     "test": "vitest run"

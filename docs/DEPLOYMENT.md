@@ -72,3 +72,28 @@ For the realtime server, we recommend **Railway** or **Render** because they off
    - **Start Command**: `node dist/server.js`
 5. **Environment Variables**:
    - `DATABASE_URL`, `ROOM_JWT_SECRET`, `ALLOWED_ORIGIN`, and `PORT`.
+
+### Option C: Hugging Face Spaces (Docker)
+1. Create a Space on [Hugging Face](https://huggingface.co/new-space).
+2. Set the SDK to **Docker** (which uses the root [Dockerfile](file:///home/varad/Documents/internship-tasks/11-auction-Auction-Task/Dockerfile)).
+3. Add a [README.md](file:///home/varad/Documents/internship-tasks/11-auction-Auction-Task/docs/DEPLOYMENT.md) at the root containing the Space's metadata frontmatter:
+   ```yaml
+   ---
+   title: Bidstand Realtime
+   emoji: 🔨
+   colorFrom: indigo
+   colorTo: purple
+   sdk: docker
+   app_port: 7860
+   pinned: false
+   ---
+   ```
+4. Push your files to the Hugging Face Space repository using `hf upload` (excluding heavy dependencies like `node_modules`):
+   ```bash
+   hf upload <username>/<space-name> /tmp/bidstand-deploy . --repo-type space --delete "*"
+   ```
+5. Go to Space **Settings** -> **Variables and secrets** on the Hugging Face Space page, and add:
+   - Secret `DATABASE_URL`: Your production PostgreSQL connection string.
+   - Secret `ROOM_JWT_SECRET`: The shared JWT secret (must match Next.js Web App).
+   - Variable `ALLOWED_ORIGIN`: Your production Vercel app URL (or `*`).
+
