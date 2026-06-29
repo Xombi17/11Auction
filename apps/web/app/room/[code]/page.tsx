@@ -1,9 +1,32 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
-import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
+import { connectSocket, disconnectSocket } from "@/lib/socket";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
+import { CountdownRing } from "@/components/ui/CountdownRing";
+import Image from "next/image";
+import { initAudio, playBidSound, playWarningSound, playSoldSound, playUnsoldSound, playErrorSound } from "@/lib/sounds";
+import { useToast } from "@/components/ui/Toast";
+import {
+  Radio,
+  Users,
+  Trophy,
+  AlertTriangle,
+  Play,
+  Pause,
+  Gavel,
+  X,
+  Crown,
+  Wallet,
+  UserMinus,
+  Trash2,
+  TrendingUp,
+  Eye,
+} from "lucide-react";
 
 export default function LiveAuctionPage({ params }: { params: { code: string } }) {
   const router = useRouter();
@@ -14,20 +37,19 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
   const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  
-  // Socket & Auth state
+
   const [socketStatus, setSocketStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
   const [role, setRole] = useState<"COMMISSIONER" | "TEAM_OWNER" | "SPECTATOR" | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
   const [participantId, setParticipantId] = useState<string>("");
   const [socket, setSocket] = useState<any>(null);
+  const { showToast } = useToast();
 
-  // Timer & Bidding state
   const [secondsRemaining, setSecondsRemaining] = useState(15);
   const [isBidding, setIsBidding] = useState(false);
   const [bidError, setBidError] = useState("");
+  const [showManageUsers, setShowManageUsers] = useState(false);
 
-  // Resolution banners/overlays
   const [resolutionOverlay, setResolutionOverlay] = useState<{
     show: boolean;
     outcome: "SOLD" | "UNSOLD" | "";
@@ -37,8 +59,13 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
   }>({ show: false, outcome: "", playerName: "" });
 
   const prevItemRef = useRef<any>(null);
+  const warningPlayedRef = useRef<Set<number>>(new Set());
 
-  // Load Room and Initialize Socket
+  // Initialize audio on first user interaction
+  useEffect(() => {
+    initAudio();
+  }, []);
+
   useEffect(() => {
     let active = true;
 
@@ -62,7 +89,6 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
             return;
           }
 
-          // Decode JWT to extract role & identity
           try {
             const base64Url = token.split(".")[1];
             const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
@@ -81,21 +107,14 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
             console.error("Error decoding token:", e);
           }
 
-          // Connect Socket
           const s = connectSocket(token);
           setSocket(s);
 
-          s.on("connect", () => {
-            setSocketStatus("connected");
-          });
-
-          s.on("disconnect", () => {
-            setSocketStatus("disconnected");
-          });
+          s.on("connect", () => setSocketStatus("connected"));
+          s.on("disconnect", () => setSocketStatus("disconnected"));
 
           s.on("room:state", (state: any) => {
             if (state.ok) {
-              // Handle Redirects based on status
               if (state.room.status === "LOBBY") {
                 router.push(`/room/${code}/lobby`);
                 return;
@@ -105,24 +124,25 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
                 return;
               }
 
-              // Detect item transitions to trigger SOLD/UNSOLD visual banners
               const prevItem = prevItemRef.current;
               const nextItem = state.room.currentItem;
 
               if (prevItem && (!nextItem || prevItem.id !== nextItem.id)) {
-                // Determine resolution
                 const lastBid = prevItem.bids?.[0];
                 const outcome = lastBid ? "SOLD" : "UNSOLD";
-                const teamName = lastBid ? lastBid.teamName : undefined;
-                const price = lastBid ? lastBid.amount : undefined;
-
                 setResolutionOverlay({
                   show: true,
                   outcome,
                   playerName: prevItem.name,
-                  teamName,
-                  price
+                  teamName: lastBid?.teamName,
+                  price: lastBid?.amount,
                 });
+
+                if (outcome === "SOLD") {
+                  playSoldSound();
+                } else {
+                  playUnsoldSound();
+                }
 
                 setTimeout(() => {
                   setResolutionOverlay({ show: false, outcome: "", playerName: "" });
@@ -137,13 +157,36 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
           });
 
           s.on("bid:rejected", (err: any) => {
-            setBidError(err.reason || "Bid was rejected");
+            const reason = err.reason || "Bid was rejected";
+            setBidError(reason);
             setIsBidding(false);
-            setTimeout(() => setBidError(""), 3000);
+            showToast({ type: "error", title: "Bid Rejected", message: reason });
+            setTimeout(() => setBidError(""), 4000);
           });
 
           s.on("bid:accepted", () => {
             setIsBidding(false);
+            playBidSound();
+          });
+
+          s.on("room:disbanded", (data: any) => {
+            sessionStorage.removeItem(`bidstand_token_${code}`);
+            router.push("/");
+            showToast({
+              type: "warning",
+              title: "Auction Disbanded",
+              message: data.message || "The auction has been disbanded by the Commissioner.",
+            });
+          });
+
+          s.on("participant:kicked", (data: any) => {
+            sessionStorage.removeItem(`bidstand_token_${code}`);
+            router.push("/");
+            showToast({
+              type: "error",
+              title: "Kicked from Room",
+              message: data.message || "You have been kicked from the room by the Commissioner.",
+            });
           });
 
           s.on("error", (err: any) => {
@@ -155,9 +198,7 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
           setError(err.message || "Failed to load room details");
         }
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
 
@@ -169,67 +210,81 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
     };
   }, [code, router]);
 
-  // Timer Countdown loop
+  const roomTimerEndsAt = room?.timerEndsAt;
+  const roomStatus = room?.status;
+  const roomTimerSeconds = room?.timerSeconds;
+
   useEffect(() => {
-    if (!room || room.status !== "AUCTION" || !room.timerEndsAt) {
-      setSecondsRemaining(room?.timerSeconds ?? 15);
+    if (roomStatus !== "AUCTION" || !roomTimerEndsAt) {
+      setSecondsRemaining(roomTimerSeconds ?? 15);
+      warningPlayedRef.current.clear();
       return;
     }
 
     const interval = setInterval(() => {
-      const endsAt = new Date(room.timerEndsAt).getTime();
-      const now = Date.now();
-      const remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
+      const endsAt = new Date(roomTimerEndsAt).getTime();
+      const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
       setSecondsRemaining(remaining);
+
+      // Play warning sound at 5s, 3s, 1s
+      if ([5, 3, 1].includes(remaining) && !warningPlayedRef.current.has(remaining)) {
+        warningPlayedRef.current.add(remaining);
+        playWarningSound();
+      }
+      // Clear warnings when timer resets (goes back up)
+      if (remaining > 5) {
+        warningPlayedRef.current.clear();
+      }
     }, 200);
 
     return () => clearInterval(interval);
-  }, [room?.timerEndsAt, room?.status, room?.timerSeconds]);
+  }, [roomTimerEndsAt, roomStatus, roomTimerSeconds]);
 
-  // Next bid increment logic
   const getIncrementForPrice = (price: number, incrementRule: any) => {
     let rules = incrementRule;
     if (typeof rules === "string") {
       try {
         rules = JSON.parse(rules);
-      } catch (e) {
+      } catch {
         rules = [];
       }
     }
     if (!Array.isArray(rules) || rules.length === 0) {
       rules = [
         { threshold: 0, increment: 5 },
-        { threshold: 100, increment: 10 }
+        { threshold: 100, increment: 10 },
       ];
     }
     const sorted = [...rules].sort((a, b) => b.threshold - a.threshold);
     for (const tier of sorted) {
-      if (price >= tier.threshold) {
-        return tier.increment;
-      }
+      if (price >= tier.threshold) return tier.increment;
     }
     return 5;
   };
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-20 text-center text-slate-400">
-        Entering live auction room...
+      <div className="min-h-screen bg-base flex flex-col items-center justify-center text-white/50">
+        <div className="w-12 h-12 border-4 border-white/10 border-t-brand rounded-full animate-spin mb-6" />
+        <p className="text-lg font-medium">Entering live auction room...</p>
       </div>
     );
   }
 
   if (error && !room) {
     return (
-      <div className="max-w-md mx-auto px-4 py-20 text-center">
-        <h2 className="text-2xl font-bold text-red-400 mb-4">Error</h2>
-        <p className="text-slate-400 mb-6">{error}</p>
-        <button
-          onClick={() => router.push("/")}
-          className="bg-slate-800 hover:bg-slate-700 text-slate-100 px-6 py-2.5 rounded-lg transition"
-        >
-          Back to Home
-        </button>
+      <div className="min-h-screen bg-base flex flex-col items-center justify-center px-4">
+        <Card className="max-w-md w-full text-center">
+          <CardHeader>
+            <CardTitle className="text-danger">Connection Error</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="secondary" onClick={() => router.push("/")} className="w-full">
+              Back to Home
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -237,35 +292,29 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
   const currentItem = room?.currentItem;
   const bids = currentItem?.bids || [];
   const highestBid = bids[0] || null;
-  const currentPrice = highestBid ? highestBid.amount : (currentItem?.basePrice || 0);
-
-  // Pre-calculate next bid
+  const currentPrice = highestBid ? highestBid.amount : currentItem?.basePrice || 0;
   const nextBidAmount = highestBid
     ? currentPrice + getIncrementForPrice(currentPrice, room?.incrementRule)
     : currentItem?.basePrice || 0;
 
-  // Validate bid buttons
   const myTeam = teams.find((t) => t.id === teamId);
   const purseRemaining = myTeam ? myTeam.purseRemaining : 0;
-
-  // Caps Validation
-  const hasPurse = purseRemaining >= nextBidAmount;
-  
-  // Squad Size Validation
   const mySquadSize = myTeam?.players ? myTeam.players.length : 0;
-  const underSquadCap = mySquadSize < (room?.squadSizeCap ?? 18);
 
-  // Category Role Cap Validation
   let underRoleCap = true;
   if (myTeam && currentItem && room?.roleCaps) {
     const caps = typeof room.roleCaps === "string" ? JSON.parse(room.roleCaps) : room.roleCaps;
-    const playerRole = currentItem.category;
-    const categoryCap = caps[playerRole];
+    const categoryCap = caps[currentItem.category];
     if (categoryCap) {
-      const categoryCount = myTeam.players ? myTeam.players.filter((p: any) => p.category === playerRole).length : 0;
+      const categoryCount = myTeam.players
+        ? myTeam.players.filter((p: any) => p.category === currentItem.category).length
+        : 0;
       underRoleCap = categoryCount < categoryCap.max;
     }
   }
+
+  const hasPurse = purseRemaining >= nextBidAmount;
+  const underSquadCap = mySquadSize < (room?.squadSizeCap ?? 18);
 
   const canPlaceBid =
     role === "TEAM_OWNER" &&
@@ -283,118 +332,182 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
       roomCode: code,
       itemId: currentItem.id,
       teamId,
-      amount: nextBidAmount
+      amount: nextBidAmount,
     });
   };
 
-  // Commissioner Controls handlers
-  const handlePause = () => {
-    if (socket && role === "COMMISSIONER") {
-      socket.emit("room:pause", { roomCode: code });
-    }
+  const handlePause = () => socket?.emit("room:pause", { roomCode: code });
+  const handleResume = () => socket?.emit("room:resume", { roomCode: code });
+  const handleForceResolve = (outcome: "SOLD" | "UNSOLD") =>
+    socket?.emit("room:force-resolve", { roomCode: code, outcome });
+
+  const handleDisbandAuction = () => {
+    if (!socket) return;
+    showToast({
+      type: "warning",
+      title: "Disband Auction?",
+      message: "This will delete the room and all its data permanently.",
+      action: { label: "Confirm", onClick: () => socket.emit("room:disband", { roomCode: code }) },
+      duration: 0, // Don't auto-dismiss
+    });
   };
 
-  const handleResume = () => {
-    if (socket && role === "COMMISSIONER") {
-      socket.emit("room:resume", { roomCode: code });
-    }
+  const handleKickParticipant = (participantId: string, name: string) => {
+    if (!socket) return;
+    showToast({
+      type: "warning",
+      title: `Kick ${name}?`,
+      action: { label: "Confirm", onClick: () => socket.emit("participant:kick", { roomCode: code, participantId }) },
+      duration: 0,
+    });
   };
 
-  const handleForceResolve = (outcome: "SOLD" | "UNSOLD") => {
-    if (socket && role === "COMMISSIONER") {
-      socket.emit("room:force-resolve", { roomCode: code, outcome });
+  const statusBadgeVariant =
+    room?.status === "AUCTION" ? "live" : room?.status === "PAUSED" ? "warning" : "default";
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.code === "Space" && canPlaceBid && !isBidding) {
+        e.preventDefault();
+        handlePlaceBid();
+      }
+      if (e.code === "KeyP" && role === "COMMISSIONER") {
+        e.preventDefault();
+        if (room?.status === "AUCTION") handlePause();
+        else if (room?.status === "PAUSED") handleResume();
+      }
+      if (e.code === "Escape") {
+        setShowManageUsers(false);
+        setResolutionOverlay({ show: false, outcome: "", playerName: "" });
+      }
     }
-  };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [canPlaceBid, isBidding, role, room?.status, handlePlaceBid, handlePause, handleResume]);
 
   return (
-    <div className="relative min-h-screen bg-slate-950 text-slate-100 flex flex-col w-full">
-      {/* Disconnected Alert Banner */}
+    <div className="relative min-h-screen bg-base text-white flex flex-col w-full overflow-hidden">
+      {/* Background glow */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] bg-brand/5 rounded-full blur-[140px]" />
+        <div className="absolute bottom-0 right-0 w-[600px] h-[400px] bg-brand2/5 rounded-full blur-[120px]" />
+      </div>
+
+      {/* Disconnected banner */}
       {socketStatus !== "connected" && (
-        <div className="w-full bg-red-600 text-white text-center py-2 text-sm font-semibold tracking-wider animate-pulse flex justify-center items-center gap-2 z-50">
-          <span>⚠️ Websocket Connection Lost. Reconnecting to stadium servers...</span>
+        <div className="relative z-50 w-full bg-danger/20 border-b border-danger/30 text-danger px-4 py-2.5 text-center text-sm font-bold flex justify-center items-center gap-2 animate-pulse">
+          <AlertTriangle className="w-4 h-4" />
+          Websocket connection lost. Reconnecting to stadium servers...
         </div>
       )}
 
-      {/* SOLD / UNSOLD Banners */}
+      {/* Resolution overlay */}
       {resolutionOverlay.show && (
-        <div className="fixed inset-0 bg-slate-950/90 z-50 flex items-center justify-center animate-fade-in">
-          <div className="text-center p-8 max-w-lg rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl scale-up">
+        <div className="fixed inset-0 bg-base/95 backdrop-blur-xl z-50 flex items-center justify-center animate-fade-in">
+          <div
+            className={`text-center p-10 max-w-xl w-full rounded-[2.5rem] border shadow-2xl ${
+              resolutionOverlay.outcome === "SOLD"
+                ? "bg-sold/5 border-sold/30 shadow-glow"
+                : "bg-unsold/5 border-unsold/30"
+            }`}
+          >
             <span
-              className={`text-6xl font-extrabold tracking-widest uppercase block mb-4 ${
-                resolutionOverlay.outcome === "SOLD" ? "text-green-500" : "text-slate-400"
+              className={`text-7xl font-black tracking-widest uppercase block mb-4 font-display ${
+                resolutionOverlay.outcome === "SOLD" ? "text-sold" : "text-unsold"
               }`}
             >
               {resolutionOverlay.outcome}
             </span>
-            <h2 className="text-3xl font-bold mb-2">{resolutionOverlay.playerName}</h2>
+            <h2 className="text-3xl font-bold text-white mb-4">{resolutionOverlay.playerName}</h2>
             {resolutionOverlay.outcome === "SOLD" ? (
-              <p className="text-xl text-slate-300">
-                Won by <span className="font-bold text-blue-400">{resolutionOverlay.teamName}</span> for{" "}
-                <span className="font-mono font-bold text-green-400">
+              <p className="text-xl text-white/70">
+                Won by <span className="font-bold text-brand-light">{resolutionOverlay.teamName}</span> for{" "}
+                <span className="font-mono font-bold text-sold">
                   ₹{(resolutionOverlay.price! / 100).toFixed(2)} Cr
                 </span>
               </p>
             ) : (
-              <p className="text-xl text-slate-400">Player goes unsold this round.</p>
+              <p className="text-xl text-white/50">Player goes unsold this round.</p>
             )}
           </div>
         </div>
       )}
 
-      {/* Top Zone: Team Purse Strip */}
-      <div className="bg-slate-900 border-b border-slate-800 px-6 py-4 shadow-md w-full">
-        <div className="max-w-[1600px] mx-auto flex justify-between items-center gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-slate-100">{room?.name}</h1>
-              <span
-                className={`text-xs px-2.5 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
-                  room?.status === "AUCTION"
-                    ? "bg-green-500/10 text-green-500 border border-green-500/20"
-                    : room?.status === "PAUSED"
-                    ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20"
-                    : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
-                }`}
-              >
-                ● {room?.status}
-              </span>
+      {/* Top header */}
+      <header className="relative z-10 border-b border-white/10 bg-base/80 backdrop-blur-md">
+        <div className="max-w-[1600px] mx-auto px-6 h-20 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center size-11 rounded-xl bg-gradient-to-br from-brand to-brand2 shadow-glow">
+              <Gavel className="size-6 text-white" />
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">Live Scoreboard</p>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">{room?.name}</h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Badge variant={statusBadgeVariant} pulse={room?.status === "AUCTION"}>
+                  {room?.status}
+                </Badge>
+                <span className="text-xs text-white/40 font-mono">CODE: {code}</span>
+                {/* Spectator count badge */}
+                {participants && participants.length > 0 && (
+                  <Badge variant="ghost" className="gap-1.5">
+                    <Eye className="w-3 h-3" />
+                    {participants.filter((p: any) => p.role === "SPECTATOR" || (p.role === "TEAM_OWNER" && !p.connected)).length} watching
+                  </Badge>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="flex-1 overflow-x-auto scrollbar-none flex gap-4 px-4 justify-end">
+          <div className="flex items-center gap-3">
+            {role === "COMMISSIONER" && (
+              <Button variant="ghost" size="sm" leftIcon={<Users className="w-4 h-4" />} onClick={() => setShowManageUsers(true)}>
+                Users
+              </Button>
+            )}
+            <Button variant="secondary" size="sm" onClick={() => router.push("/")}>
+              Leave
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Team purse strip */}
+      <div className="relative z-10 bg-surface/50 border-b border-white/10 backdrop-blur-sm">
+        <div className="max-w-[1600px] mx-auto px-6 py-4">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
+            <span className="text-xs font-bold uppercase tracking-widest text-white/40 shrink-0 mr-2">
+              Purses
+            </span>
             {teams.map((team) => {
               const remainingPct = (team.purseRemaining / team.purseTotal) * 100;
               const isMyTeam = team.id === teamId;
+              const squadCount = (team.players || []).length;
 
               return (
                 <div
                   key={team.id}
-                  className={`flex flex-col min-w-[180px] p-2.5 rounded-lg border transition ${
+                  className={`shrink-0 min-w-[190px] p-3 rounded-2xl border transition-all duration-300 ${
                     isMyTeam
-                      ? "bg-blue-950/20 border-blue-500/50"
-                      : "bg-slate-950/40 border-slate-800"
+                      ? "bg-brand/10 border-brand/30 shadow-glow"
+                      : "bg-white/[0.03] border-white/[0.08]"
                   }`}
                 >
-                  <div className="flex justify-between items-start">
-                    <span className="text-xs font-bold text-slate-300 truncate max-w-[100px]">
-                      {team.name}
-                    </span>
-                    <span className="text-[10px] text-slate-500">
-                      {(team.players || []).length}/{room?.squadSizeCap}
+                  <div className="flex justify-between items-start mb-1.5">
+                    <span className="text-xs font-bold text-white truncate max-w-[110px]">{team.name}</span>
+                    <span className="text-[10px] text-white/40 font-mono">
+                      {squadCount}/{room?.squadSizeCap}
                     </span>
                   </div>
-                  <span className="text-sm font-mono font-bold text-slate-100 mt-1">
+                  <span className="text-sm font-mono font-bold text-white tabular-nums">
                     ₹{(team.purseRemaining / 100).toFixed(2)} Cr
                   </span>
-                  <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
                     <div
-                      className={`h-full transition-all duration-300 ${
-                        remainingPct > 50
-                          ? "bg-green-500"
-                          : remainingPct > 20
-                          ? "bg-yellow-500"
-                          : "bg-red-500"
+                      className={`h-full transition-all duration-500 rounded-full ${
+                        remainingPct > 50 ? "bg-sold" : remainingPct > 20 ? "bg-live" : "bg-danger"
                       }`}
                       style={{ width: `${remainingPct}%` }}
                     />
@@ -406,241 +519,360 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
         </div>
       </div>
 
-      {/* Main Content Zone */}
-      <div className="flex-1 max-w-[1600px] w-full mx-auto px-6 py-8 grid grid-cols-1 xl:grid-cols-3 gap-8 items-stretch">
-        
-        {/* Left 2 Columns: Player Card & Bidding Controls */}
-        <div className="xl:col-span-2 flex flex-col justify-between space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 flex-1 flex flex-col md:flex-row gap-8 items-center shadow-lg relative overflow-hidden">
-            {/* Background Accent Gradients */}
-            <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-80 h-80 bg-green-500/5 rounded-full blur-3xl" />
+      {/* Main auction area */}
+      <main className="relative z-10 flex-1 max-w-[1600px] w-full mx-auto px-6 py-8 grid grid-cols-1 xl:grid-cols-3 gap-8 items-stretch">
+        {/* Left 2 cols: player card + bid controls */}
+        <div className="xl:col-span-2 flex flex-col gap-6">
+          <Card className="flex-1 flex flex-col md:flex-row gap-8 items-center relative overflow-hidden min-h-[420px]">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-brand/5 rounded-full blur-[100px] pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-80 h-80 bg-brand2/5 rounded-full blur-[100px] pointer-events-none" />
 
-            {/* Player Image / Graphic */}
-            <div className="w-full md:w-64 h-64 bg-slate-950 border border-slate-800 rounded-xl overflow-hidden flex flex-col items-center justify-center text-slate-600 relative shrink-0">
+            {/* Player image/graphic */}
+            <div className="relative w-full md:w-72 h-72 bg-black/40 border border-white/10 rounded-3xl overflow-hidden flex flex-col items-center justify-center text-white/30 shrink-0">
               {currentItem?.imageUrl ? (
-                <img
+                <Image
                   src={currentItem.imageUrl}
                   alt={currentItem.name}
-                  className="w-full h-full object-cover"
+                  fill
+                  unoptimized
+                  className="object-cover"
                 />
               ) : (
-                <div className="text-center p-4">
-                  <span className="text-5xl mb-2 block">🏏</span>
-                  <span className="text-xs uppercase tracking-widest text-slate-500">Player Card</span>
+                <div className="text-center p-6">
+                  <Trophy className="w-20 h-20 mx-auto mb-4 text-white/20" />
+                  <span className="text-xs uppercase tracking-widest font-bold text-white/40">
+                    On the Block
+                  </span>
                 </div>
               )}
             </div>
 
-            {/* Player Details & Prices */}
-            <div className="flex-1 space-y-6 w-full text-center md:text-left">
+            {/* Player details */}
+            <div className="flex-1 space-y-6 w-full text-center md:text-left relative z-10">
               <div>
-                <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs px-3 py-1 rounded-full uppercase tracking-wider font-semibold">
-                  {currentItem?.category || "No active player"}
-                </span>
-                <h2 className="text-4xl font-extrabold text-slate-100 mt-3 tracking-tight">
+                <Badge variant="brand" className="mb-3">
+                  {currentItem?.category || "Waiting"}
+                </Badge>
+                <h2 className="text-4xl sm:text-5xl font-black text-white tracking-tight font-display">
                   {currentItem?.name || "Waiting for Commissioner"}
                 </h2>
               </div>
 
               {currentItem && (
-                <div className="grid grid-cols-2 gap-6 bg-slate-950/50 border border-slate-800/80 p-4 rounded-xl">
+                <div className="grid grid-cols-2 gap-4 bg-white/[0.03] border border-white/[0.08] p-5 rounded-2xl">
                   <div>
-                    <span className="text-xs text-slate-500 uppercase font-semibold">Base Price</span>
-                    <p className="text-2xl font-mono font-bold text-slate-300 mt-1">
+                    <span className="text-xs text-white/40 uppercase font-bold tracking-widest">
+                      Base Price
+                    </span>
+                    <p className="text-2xl font-mono font-bold text-white/70 mt-1 tabular-nums">
                       ₹{(currentItem.basePrice / 100).toFixed(2)} Cr
                     </p>
-                    <span className="text-[10px] text-slate-500">({currentItem.basePrice} Lakhs)</span>
+                    <span className="text-[10px] text-white/30">{currentItem.basePrice} Lakhs</span>
                   </div>
-
                   <div>
-                    <span className="text-xs text-slate-500 uppercase font-semibold">Current Bid</span>
-                    <p className="text-2xl font-mono font-bold text-green-400 mt-1">
+                    <span className="text-xs text-white/40 uppercase font-bold tracking-widest">
+                      Current Bid
+                    </span>
+                    <p className="text-2xl font-mono font-bold text-live mt-1 tabular-nums">
                       ₹{(currentPrice / 100).toFixed(2)} Cr
                     </p>
-                    <span className="text-xs text-slate-400 truncate block">
-                      {highestBid ? `By ${highestBid.teamName}` : "No bids placed yet"}
+                    <span className="text-xs text-white/50 truncate block">
+                      {highestBid ? `By ${highestBid.teamName}` : "No bids yet"}
                     </span>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Countdown circular ring */}
+            {/* Countdown */}
             {currentItem && room?.status === "AUCTION" && (
-              <div className="relative w-32 h-32 flex items-center justify-center shrink-0">
-                <svg className="w-full h-full transform -rotate-90">
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="52"
-                    className="text-slate-800"
-                    strokeWidth="8"
-                    stroke="currentColor"
-                    fill="transparent"
-                  />
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="52"
-                    className="text-blue-500 transition-all duration-300"
-                    strokeWidth="8"
-                    strokeDasharray={2 * Math.PI * 52}
-                    strokeDashoffset={
-                      (2 * Math.PI * 52) * (1 - secondsRemaining / room.timerSeconds)
-                    }
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="transparent"
-                  />
-                </svg>
-                <div className="absolute text-center">
-                  <span className="text-3xl font-mono font-extrabold">{secondsRemaining}</span>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block">Secs</span>
-                </div>
+              <CountdownRing
+                secondsRemaining={secondsRemaining}
+                totalSeconds={room.timerSeconds}
+                size={140}
+                stroke={10}
+                className="shrink-0"
+              />
+            )}
+
+            {currentItem && room?.status === "PAUSED" && (
+              <div className="shrink-0 w-36 h-36 rounded-full border-4 border-warning/30 bg-warning/10 flex flex-col items-center justify-center text-warning">
+                <Pause className="w-8 h-8 mb-1" />
+                <span className="text-xs font-bold uppercase tracking-widest">Paused</span>
               </div>
             )}
-          </div>
+          </Card>
 
-          {/* Bidding Controls Zone */}
+          {/* Bid controls */}
           {currentItem && (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-md">
+            <Card>
               {role === "TEAM_OWNER" ? (
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-400">
-                      Your Team: <span className="font-bold text-slate-200">{myTeam?.name}</span>
-                    </span>
-                    <span className="font-mono text-slate-300">
-                      Purse Left: ₹{(purseRemaining / 100).toFixed(2)} Cr
-                    </span>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm">
+                    <div className="flex items-center gap-2 text-white/70">
+                      <Crown className="w-4 h-4 text-brand-light" />
+                      <span>
+                        Your Team: <span className="font-bold text-white">{myTeam?.name}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 font-mono text-white/70">
+                      <Wallet className="w-4 h-4 text-sold" />
+                      <span>
+                        Purse Left:{" "}
+                        <span className="text-white font-bold tabular-nums">
+                          ₹{(purseRemaining / 100).toFixed(2)} Cr
+                        </span>
+                      </span>
+                    </div>
                   </div>
 
                   {bidError && (
-                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2.5 rounded-lg text-sm text-center">
+                    <div className="bg-danger/10 border border-danger/20 text-danger px-4 py-3 rounded-xl text-sm text-center font-medium">
                       {bidError}
                     </div>
                   )}
 
-                  <button
+                  <Button
+                    variant="live"
+                    size="xl"
+                    className="w-full"
                     onClick={handlePlaceBid}
                     disabled={!canPlaceBid || isBidding}
-                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-extrabold text-xl py-5 rounded-xl transition-all shadow-lg active:scale-[0.99] flex flex-col items-center justify-center"
+                    isLoading={isBidding}
+                    leftIcon={<TrendingUp className="w-5 h-5" />}
                   >
-                    <span>
-                      {isBidding ? "Submitting Bid..." : `Place Bid: ₹${(nextBidAmount / 100).toFixed(2)} Cr`}
-                    </span>
-                    <span className="text-xs font-normal opacity-80 mt-1">
-                      (Next Minimum: {nextBidAmount} Lakhs)
-                    </span>
-                  </button>
+                    {isBidding
+                      ? "Submitting Bid..."
+                      : `Bid ₹${(nextBidAmount / 100).toFixed(2)} Cr`}
+                  </Button>
 
-                  <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-500 mt-2">
-                    <div className={`p-2 rounded border ${hasPurse ? 'border-slate-800' : 'border-red-500 bg-red-500/5 text-red-400'}`}>
-                      {hasPurse ? "✓ Sufficient Purse" : "✗ Insufficient Purse"}
+                  {/* Keyboard shortcut hint */}
+                  <p className="text-center text-[10px] text-white/30 uppercase tracking-wider font-mono">
+                    Space to bid &bull; P to pause/resume &bull; Esc to close modals
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center text-xs">
+                    <div
+                      className={`p-3 rounded-xl border ${
+                        hasPurse
+                          ? "border-white/10 bg-white/[0.03] text-white/60"
+                          : "border-danger/30 bg-danger/10 text-danger"
+                      }`}
+                    >
+                      {hasPurse ? "Sufficient Purse" : "Insufficient Purse"}
                     </div>
-                    <div className={`p-2 rounded border ${underSquadCap ? 'border-slate-800' : 'border-red-500 bg-red-500/5 text-red-400'}`}>
-                      {underSquadCap ? `✓ Squad slots (${mySquadSize}/${room?.squadSizeCap})` : "✗ Squad size cap reached"}
+                    <div
+                      className={`p-3 rounded-xl border ${
+                        underSquadCap
+                          ? "border-white/10 bg-white/[0.03] text-white/60"
+                          : "border-danger/30 bg-danger/10 text-danger"
+                      }`}
+                    >
+                      {underSquadCap ? `Squad slots (${mySquadSize}/${room?.squadSizeCap})` : "Squad cap reached"}
                     </div>
-                    <div className={`p-2 rounded border ${underRoleCap ? 'border-slate-800' : 'border-red-500 bg-red-500/5 text-red-400'}`}>
-                      {underRoleCap ? "✓ Category quota" : "✗ Category quota exceeded"}
+                    <div
+                      className={`p-3 rounded-xl border ${
+                        underRoleCap
+                          ? "border-white/10 bg-white/[0.03] text-white/60"
+                          : "border-danger/30 bg-danger/10 text-danger"
+                      }`}
+                    >
+                      {underRoleCap ? "Category quota OK" : "Category quota exceeded"}
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-6 text-slate-400 text-sm">
-                  {role === "COMMISSIONER"
-                    ? "You are logged in as the Commissioner. Bidding controls are only available to Team Owners."
-                    : "You are spectating this room. Bidding controls are view-only."}
+                <div className="text-center py-8 text-white/50">
+                  {role === "COMMISSIONER" ? (
+                    <div className="space-y-2">
+                      <Crown className="w-10 h-10 mx-auto text-brand-light/50" />
+                      <p className="font-medium">You are the Commissioner.</p>
+                      <p className="text-sm">Bidding controls are only available to Team Owners.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Radio className="w-10 h-10 mx-auto text-white/20" />
+                      <p className="font-medium">You are spectating this room.</p>
+                      <p className="text-sm">Bidding controls are view-only.</p>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </Card>
           )}
         </div>
 
-        {/* Right Column: Live Bid History Feed */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-md flex flex-col h-[500px] xl:h-auto">
-          <h3 className="text-lg font-bold text-slate-200 border-b border-slate-800 pb-3 mb-4 flex justify-between items-center">
-            <span>Bid History</span>
-            <span className="text-xs font-mono font-normal text-slate-500">
-              {bids.length} bid(s)
-            </span>
-          </h3>
-
-          <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin">
-            {bids.map((bid: any) => (
-              <div
-                key={bid.id}
-                className="bg-slate-950 border border-slate-800/80 rounded-xl p-3.5 flex justify-between items-center animate-slide-up"
-              >
-                <div>
-                  <h4 className="font-bold text-slate-200 text-sm">{bid.teamName}</h4>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    {new Date(bid.createdAt).toLocaleTimeString()}
-                  </p>
+        {/* Right col: Bid history */}
+        <Card className="flex flex-col h-[520px] xl:h-auto">
+          <CardHeader className="pb-3 border-b border-white/[0.08]">
+            <div className="flex justify-between items-center">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <TrendingUp className="w-5 h-5 text-brand-light" />
+                Bid History
+              </CardTitle>
+              <span className="text-xs font-mono text-white/40 bg-white/5 px-2 py-1 rounded-md border border-white/10">
+                {bids.length}
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-y-auto scrollbar-none pt-4">
+            <div className="space-y-3">
+              {bids.map((bid: any) => (
+                <div
+                  key={bid.id}
+                  className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-4 flex justify-between items-center animate-fade-in"
+                >
+                  <div>
+                    <h4 className="font-bold text-white text-sm">{bid.teamName}</h4>
+                    <p className="text-[10px] text-white/40 mt-0.5">
+                      {new Date(bid.createdAt).toLocaleTimeString()}
+                    </p>
+                  </div>
+                  <span className="text-sm font-mono font-bold text-sold tabular-nums">
+                    ₹{(bid.amount / 100).toFixed(2)} Cr
+                  </span>
                 </div>
-                <span className="text-sm font-mono font-bold text-green-400">
-                  ₹{(bid.amount / 100).toFixed(2)} Cr
-                </span>
-              </div>
-            ))}
-            {bids.length === 0 && (
-              <div className="h-full flex items-center justify-center text-center text-slate-600">
-                <div>
-                  <span className="text-4xl block mb-2">⚖️</span>
-                  <p className="text-sm">No bids placed yet for this player.</p>
+              ))}
+              {bids.length === 0 && (
+                <div className="h-full flex items-center justify-center text-center text-white/30 py-16">
+                  <div>
+                    <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">No bids placed yet for this player.</p>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </main>
 
-      {/* Bottom Zone: Commissioner Control Console */}
+      {/* Commissioner controls */}
       {role === "COMMISSIONER" && (
-        <div className="bg-slate-900 border-t border-slate-800 p-6 w-full shadow-lg">
-          <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="relative z-10 bg-surface/80 border-t border-white/10 backdrop-blur-md p-6">
+          <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
-              <h4 className="font-bold text-slate-200">Commissioner Command Center</h4>
-              <p className="text-xs text-slate-500 mt-0.5">Manage live auction session timers and manual resolutions.</p>
+              <h4 className="font-bold text-white flex items-center gap-2">
+                <Crown className="w-4 h-4 text-brand-light" />
+                Commissioner Command Center
+              </h4>
+              <p className="text-xs text-white/40 mt-0.5">
+                Manage timers, participants, and manual resolutions.
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<Users className="w-4 h-4" />}
+                onClick={() => setShowManageUsers(true)}
+              >
+                Manage Users
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                leftIcon={<Trash2 className="w-4 h-4" />}
+                onClick={handleDisbandAuction}
+              >
+                Disband
+              </Button>
               {room?.status === "AUCTION" ? (
-                <button
+                <Button
+                  variant="warning"
+                  size="sm"
+                  leftIcon={<Pause className="w-4 h-4" />}
                   onClick={handlePause}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-6 py-2.5 rounded-lg text-sm transition"
                 >
-                  Pause Timer
-                </button>
+                  Pause
+                </Button>
               ) : room?.status === "PAUSED" ? (
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Play className="w-4 h-4" />}
                   onClick={handleResume}
-                  className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2.5 rounded-lg text-sm transition"
                 >
-                  Resume Timer
-                </button>
+                  Resume
+                </Button>
               ) : null}
-
               {currentItem && (
                 <>
-                  <button
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<Gavel className="w-4 h-4" />}
                     onClick={() => handleForceResolve("SOLD")}
                     disabled={bids.length === 0}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold px-6 py-2.5 rounded-lg text-sm transition"
                   >
                     Force Sold
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    leftIcon={<X className="w-4 h-4" />}
                     onClick={() => handleForceResolve("UNSOLD")}
-                    className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-2.5 rounded-lg text-sm transition"
                   >
                     Force Unsold
-                  </button>
+                  </Button>
                 </>
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Manage Users Modal */}
+      {showManageUsers && (
+        <div className="fixed inset-0 bg-base/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md relative">
+            <button
+              onClick={() => setShowManageUsers(false)}
+              className="absolute top-5 right-5 text-white/40 hover:text-white transition"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <CardHeader>
+              <CardTitle>Manage Participants</CardTitle>
+              <CardDescription>Kick disconnected or disruptive users from the room.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 max-h-[360px] overflow-y-auto scrollbar-none">
+                {participants.map((p) => (
+                  <div
+                    key={p.id}
+                    className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-3 flex justify-between items-center text-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full ${p.connected ? "bg-sold" : "bg-white/20"}`}
+                      />
+                      <div>
+                        <span className="font-semibold text-white block leading-tight">{p.displayName}</span>
+                        <span className="text-[10px] text-white/40 uppercase tracking-wider">
+                          {p.role} {p.connected ? "(Online)" : "(Offline)"}
+                        </span>
+                      </div>
+                    </div>
+                    {p.role !== "COMMISSIONER" && (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        leftIcon={<UserMinus className="w-3.5 h-3.5" />}
+                        onClick={() => handleKickParticipant(p.id, p.displayName)}
+                      >
+                        Kick
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                {participants.length <= 1 && (
+                  <p className="text-white/40 text-sm text-center py-4">No other participants connected.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

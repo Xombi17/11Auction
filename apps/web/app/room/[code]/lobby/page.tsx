@@ -4,6 +4,25 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
+import {
+  Radio,
+  Link as LinkIcon,
+  Copy,
+  Check,
+  Users,
+  Trophy,
+  Wallet,
+  Clock,
+  Crown,
+  Play,
+  Trash2,
+  UserMinus,
+  Gavel,
+  ArrowLeft,
+} from "lucide-react";
 
 export default function LobbyPage({ params }: { params: { code: string } }) {
   const router = useRouter();
@@ -14,8 +33,7 @@ export default function LobbyPage({ params }: { params: { code: string } }) {
   const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  
-  // Realtime connection status
+
   const [socketStatus, setSocketStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
   const [isCommissioner, setIsCommissioner] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -39,8 +57,7 @@ export default function LobbyPage({ params }: { params: { code: string } }) {
           setTeams(data.teams);
           setParticipants(data.participants);
 
-          // Determine token
-          let token = data.token; // returned if logged in as commissioner
+          let token = data.token;
           if (!token && typeof window !== "undefined") {
             token = sessionStorage.getItem(`bidstand_token_${code}`);
           }
@@ -50,8 +67,6 @@ export default function LobbyPage({ params }: { params: { code: string } }) {
             return;
           }
 
-          // Check if user is Commissioner
-          // Decode token manually to check role
           try {
             const base64Url = token.split(".")[1];
             const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
@@ -63,24 +78,16 @@ export default function LobbyPage({ params }: { params: { code: string } }) {
                 .join("")
             );
             const decoded = JSON.parse(jsonPayload);
-            if (decoded.role === "COMMISSIONER") {
-              setIsCommissioner(true);
-            }
+            setIsCommissioner(decoded.role === "COMMISSIONER");
           } catch (e) {
             console.error("Error decoding token:", e);
           }
 
-          // Connect Socket
           const s = connectSocket(token);
           setSocket(s);
 
-          s.on("connect", () => {
-            setSocketStatus("connected");
-          });
-
-          s.on("disconnect", () => {
-            setSocketStatus("disconnected");
-          });
+          s.on("connect", () => setSocketStatus("connected"));
+          s.on("disconnect", () => setSocketStatus("disconnected"));
 
           s.on("room:state", (state: any) => {
             if (state.ok) {
@@ -94,7 +101,19 @@ export default function LobbyPage({ params }: { params: { code: string } }) {
             }
           });
 
-          socket.on("error", (err: any) => {
+          s.on("room:disbanded", (data: any) => {
+            sessionStorage.removeItem(`bidstand_token_${code}`);
+            router.push("/");
+            alert(data.message || "The auction has been disbanded by the Commissioner.");
+          });
+
+          s.on("participant:kicked", (data: any) => {
+            sessionStorage.removeItem(`bidstand_token_${code}`);
+            router.push("/");
+            alert(data.message || "You have been kicked from the room by the Commissioner.");
+          });
+
+          s.on("error", (err: any) => {
             setError(err.message || "Realtime connection error");
           });
         }
@@ -103,9 +122,7 @@ export default function LobbyPage({ params }: { params: { code: string } }) {
           setError(err.message || "Failed to load lobby details");
         }
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
 
@@ -127,201 +144,320 @@ export default function LobbyPage({ params }: { params: { code: string } }) {
     }
   };
 
-  const handleStartAuction = () => {
-    if (socket) {
-      socket.emit("room:start", { roomCode: code });
+  const handleStartAuction = () => socket?.emit("room:start", { roomCode: code });
+
+  const handleDisbandAuction = () => {
+    if (
+      socket &&
+      window.confirm(
+        "Are you sure you want to disband the auction? This will delete the room and all its data permanently."
+      )
+    ) {
+      socket.emit("room:disband", { roomCode: code });
+    }
+  };
+
+  const handleKickParticipant = (participantId: string, name: string) => {
+    if (socket && window.confirm(`Are you sure you want to kick ${name}?`)) {
+      socket.emit("participant:kick", { roomCode: code, participantId });
     }
   };
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-20 text-center text-slate-400">
-        Loading room lobby...
+      <div className="min-h-screen bg-base flex flex-col items-center justify-center text-white/50">
+        <div className="w-12 h-12 border-4 border-white/10 border-t-brand rounded-full animate-spin mb-6" />
+        <p className="text-lg font-medium">Loading room lobby...</p>
       </div>
     );
   }
 
   if (error && !room) {
     return (
-      <div className="max-w-md mx-auto px-4 py-20 text-center">
-        <h2 className="text-2xl font-bold text-red-400 mb-4">Error</h2>
-        <p className="text-slate-400 mb-6">{error}</p>
-        <button
-          onClick={() => router.push("/")}
-          className="bg-slate-800 hover:bg-slate-700 text-slate-100 px-6 py-2.5 rounded-lg transition"
-        >
-          Back to Home
-        </button>
+      <div className="min-h-screen bg-base flex flex-col items-center justify-center px-4">
+        <Card className="max-w-md w-full text-center">
+          <CardHeader>
+            <CardTitle className="text-danger">Error</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="secondary" onClick={() => router.push("/")} className="w-full">
+              Back to Home
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   const joinedTeamOwnersCount = teams.filter((t) => t.ownerParticipantId).length;
+  const canStart = joinedTeamOwnersCount >= 2 && teams.length > 0 && (room?.players?.length || 0) > 0;
+
+  const statusBadgeVariant =
+    socketStatus === "connected" ? "sold" : socketStatus === "connecting" ? "warning" : "danger";
+  const statusLabel =
+    socketStatus === "connected" ? "Live" : socketStatus === "connecting" ? "Connecting" : "Disconnected";
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-10 w-full flex-1 flex flex-col">
-      {/* Top Header */}
-      <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-slate-100">{room?.name}</h1>
-            <span
-              className={`text-xs px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider ${
-                socketStatus === "connected"
-                  ? "bg-green-500/10 text-green-500 border border-green-500/20"
-                  : socketStatus === "connecting"
-                  ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 animate-pulse"
-                  : "bg-red-500/10 text-red-500 border border-red-500/20"
-              }`}
+    <div className="relative min-h-screen bg-base text-white flex flex-col w-full overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-brand/5 rounded-full blur-[140px]" />
+        <div className="absolute bottom-0 right-0 w-[500px] h-[400px] bg-brand2/5 rounded-full blur-[120px]" />
+      </div>
+
+      <header className="relative z-10 border-b border-white/10 bg-base/80 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push("/")}
+              className="p-2.5 hover:bg-white/5 rounded-xl transition text-white/50 hover:text-white"
+              aria-label="Back"
             >
-              ● {socketStatus === "connected" ? "Live" : socketStatus === "connecting" ? "Connecting" : "Disconnected"}
-            </span>
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-black tracking-tight text-white">{room?.name}</h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Badge variant={statusBadgeVariant} pulse={socketStatus === "connecting"}>
+                  {statusLabel}
+                </Badge>
+                <span className="text-xs text-white/40 font-mono">LOBBY</span>
+              </div>
+            </div>
           </div>
-          <p className="text-slate-400 mt-1">Lobby Room — Waiting for owners to join</p>
-        </div>
 
-        <div className="text-right">
-          <span className="text-xs text-slate-500 block">ROOM CODE</span>
-          <span className="text-3xl font-mono font-bold text-blue-500 tracking-wider bg-slate-900 border border-slate-800 px-4 py-1.5 rounded-lg">
-            {code}
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start flex-1">
-        {/* Left Column: Shareable Link & Info */}
-        <div className="space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-md">
-            <h2 className="text-lg font-bold text-slate-200 mb-4">Invite Participants</h2>
-            <p className="text-sm text-slate-400 mb-4">Share this link with Team Owners and Spectators so they can join the room.</p>
-            <div className="flex gap-2 bg-slate-950 border border-slate-800 rounded-lg p-2 items-center justify-between">
-              <span className="text-sm text-slate-300 truncate font-mono select-all px-2">
-                {typeof window !== "undefined" ? `${window.location.origin}/join/${code}` : `/join/${code}`}
+          <div className="hidden sm:flex items-center gap-3">
+            <div className="text-right">
+              <span className="text-[10px] text-white/40 uppercase tracking-widest font-bold block">
+                Room Code
               </span>
-              <button
-                onClick={handleCopyLink}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-4 py-2 rounded transition shrink-0"
-              >
-                {copySuccess ? "Copied!" : "Copy"}
-              </button>
+              <span className="text-2xl font-mono font-bold text-white tracking-wider">{code}</span>
             </div>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-md text-sm text-slate-400 space-y-3">
-            <h3 className="font-bold text-slate-200">Room Rules</h3>
-            <div className="flex justify-between">
-              <span>Purse per Team:</span>
-              <span className="font-mono text-slate-200">₹{(room?.defaultPurse || 0) / 100} Cr</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Squad Limit:</span>
-              <span className="text-slate-200">{room?.squadSizeCap} Players</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Timer duration:</span>
-              <span className="text-slate-200">{room?.timerSeconds} seconds</span>
+            <div className="flex items-center justify-center size-12 rounded-xl bg-brand/10 border border-brand/30">
+              <Radio className="w-6 h-6 text-brand-light" />
             </div>
           </div>
         </div>
+      </header>
 
-        {/* Right Column: Roster list */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Franchise Teams */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-md">
-            <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-3">
-              <h2 className="text-xl font-bold text-slate-200">Franchise Roster ({joinedTeamOwnersCount} / {teams.length} Joined)</h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {teams.map((team) => {
-                const owner = participants.find((p) => p.id === team.ownerParticipantId);
-                const isConnected = owner?.connected;
-
-                return (
-                  <div
-                    key={team.id}
-                    className="bg-slate-950 border border-slate-800 rounded-lg p-4 flex justify-between items-center"
-                  >
-                    <div>
-                      <h4 className="font-bold text-slate-200">{team.name}</h4>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Owner:{" "}
-                        <span className="font-medium text-slate-300">
-                          {owner?.displayName || "Waiting for claim..."}
-                        </span>
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full ${
-                          team.ownerParticipantId
-                            ? isConnected
-                              ? "bg-green-500"
-                              : "bg-yellow-500"
-                            : "bg-slate-700"
-                        }`}
-                        title={
-                          team.ownerParticipantId
-                            ? isConnected
-                              ? "Connected"
-                              : "Disconnected"
-                            : "Unclaimed"
-                        }
-                      />
-                      <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
-                        {team.ownerParticipantId
-                          ? isConnected
-                            ? "Online"
-                            : "Offline"
-                          : "Unclaimed"}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Connected Spectators / All Connected list */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-md">
-            <h3 className="text-lg font-bold text-slate-200 mb-4 border-b border-slate-800 pb-3">Connected Users</h3>
-            <div className="flex flex-wrap gap-3">
-              {participants.map((p) => (
-                <div
-                  key={p.id}
-                  className="bg-slate-950 border border-slate-800 rounded-full px-4 py-1.5 flex items-center gap-2 text-sm text-slate-300"
-                >
-                  <span className={`w-2 h-2 rounded-full ${p.connected ? "bg-green-500" : "bg-slate-700"}`} />
-                  <span className="font-medium">{p.displayName}</span>
-                  <span className="text-xs text-slate-500 bg-slate-900 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                    {p.role}
+      <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto px-6 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          {/* Left column */}
+          <div className="space-y-6 lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <LinkIcon className="w-5 h-5 text-brand-light" />
+                  Invite Participants
+                </CardTitle>
+                <CardDescription>
+                  Share this link with Team Owners and Spectators so they can join the room.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2 bg-black/30 border border-white/10 rounded-xl p-2 items-center">
+                  <span className="text-sm text-white/70 truncate font-mono select-all px-3">
+                    {typeof window !== "undefined"
+                      ? `${window.location.origin}/join/${code}`
+                      : `/join/${code}`}
                   </span>
+                  <Button
+                    variant={copySuccess ? "secondary" : "primary"}
+                    size="sm"
+                    onClick={handleCopyLink}
+                    className="shrink-0"
+                    leftIcon={copySuccess ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  >
+                    {copySuccess ? "Copied" : "Copy"}
+                  </Button>
                 </div>
-              ))}
-              {participants.length === 0 && (
-                <p className="text-slate-500 text-sm">No connected participants listed.</p>
-              )}
-            </div>
+
+                <div className="mt-6 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
+                  <span className="text-[10px] text-white/40 uppercase tracking-widest font-bold block mb-1">
+                    Room Code
+                  </span>
+                  <span className="text-3xl font-mono font-bold text-white tracking-[0.15em]">{code}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Trophy className="w-5 h-5 text-live" />
+                  Room Rules
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 text-sm">
+                  <div className="flex justify-between items-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+                    <span className="flex items-center gap-2 text-white/60">
+                      <Wallet className="w-4 h-4" /> Purse per Team
+                    </span>
+                    <span className="font-mono font-bold text-white">
+                      ₹{(room?.defaultPurse || 0) / 100} Cr
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+                    <span className="flex items-center gap-2 text-white/60">
+                      <Users className="w-4 h-4" /> Squad Limit
+                    </span>
+                    <span className="font-mono font-bold text-white">{room?.squadSizeCap} Players</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+                    <span className="flex items-center gap-2 text-white/60">
+                      <Clock className="w-4 h-4" /> Timer
+                    </span>
+                    <span className="font-mono font-bold text-white">{room?.timerSeconds}s</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right column */}
+          <div className="space-y-6 lg:col-span-2">
+            <Card>
+              <CardHeader className="border-b border-white/[0.08] pb-4">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Users className="w-5 h-5 text-brand-light" />
+                    Franchise Roster
+                  </CardTitle>
+                  <Badge variant="brand">
+                    {joinedTeamOwnersCount} / {teams.length} Joined
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {teams.map((team) => {
+                    const owner = participants.find((p) => p.id === team.ownerParticipantId);
+                    const isConnected = owner?.connected;
+
+                    return (
+                      <div
+                        key={team.id}
+                        className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-4 flex justify-between items-center hover:border-white/20 transition"
+                      >
+                        <div>
+                          <h4 className="font-bold text-white">{team.name}</h4>
+                          <p className="text-xs text-white/40 mt-1">
+                            Owner:{" "}
+                            <span className="font-medium text-white/70">
+                              {owner?.displayName || "Waiting for claim..."}
+                            </span>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Badge variant={team.ownerParticipantId ? (isConnected ? "sold" : "warning") : "unsold"}>
+                            {team.ownerParticipantId ? (isConnected ? "Online" : "Offline") : "Open"}
+                          </Badge>
+                          {isCommissioner && team.ownerParticipantId && owner && (
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              leftIcon={<UserMinus className="w-3.5 h-3.5" />}
+                              onClick={() => handleKickParticipant(owner.id, owner.displayName)}
+                            >
+                              Kick
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="border-b border-white/[0.08] pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Radio className="w-5 h-5 text-sold" />
+                  Connected Users
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-5">
+                <div className="flex flex-wrap gap-3">
+                  {participants.map((p) => (
+                    <div
+                      key={p.id}
+                      className="bg-white/[0.05] border border-white/[0.10] rounded-full pl-1.5 pr-4 py-1.5 flex items-center gap-2.5 text-sm"
+                    >
+                      <span
+                        className={`w-2 h-2 rounded-full ${p.connected ? "bg-sold" : "bg-white/20"}`}
+                      />
+                      <span className="font-medium text-white">{p.displayName}</span>
+                      <Badge variant="default" className="!px-2 !py-0.5 !text-[10px]">
+                        {p.role}
+                      </Badge>
+                      {isCommissioner && p.role !== "COMMISSIONER" && (
+                        <button
+                          onClick={() => handleKickParticipant(p.id, p.displayName)}
+                          className="text-white/30 hover:text-danger ml-1 transition"
+                          title={`Kick ${p.displayName}`}
+                        >
+                          <UserMinus className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {participants.length === 0 && (
+                    <p className="text-white/40 text-sm">No connected participants listed.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </div>
 
-      {/* Fixed bottom controls */}
-      {isCommissioner && (
-        <div className="mt-8 bg-slate-900 border border-slate-800 p-4 rounded-xl flex justify-between items-center shadow-lg">
-          <p className="text-slate-300 text-sm">
-            You are the **Commissioner** of this room. You can start the auction when you are ready.
-          </p>
-          <button
-            onClick={handleStartAuction}
-            disabled={joinedTeamOwnersCount === 0}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold px-8 py-3 rounded-lg transition"
-          >
-            Start Auction
-          </button>
-        </div>
-      )}
+        {isCommissioner && (
+          <div className="mt-8 glass-panel p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="size-11 rounded-xl bg-brand/10 border border-brand/30 flex items-center justify-center">
+                <Crown className="w-6 h-6 text-brand-light" />
+              </div>
+              <div>
+                <h4 className="font-bold text-white">Commissioner Controls</h4>
+                <p className="text-xs text-white/40">
+                  Start when at least 2 franchises have owners. Need {Math.max(0, 2 - joinedTeamOwnersCount)} more.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 w-full lg:w-auto">
+              <Button
+                variant="danger"
+                size="md"
+                leftIcon={<Trash2 className="w-4 h-4" />}
+                onClick={handleDisbandAuction}
+              >
+                Disband
+              </Button>
+              <Button
+                size="lg"
+                leftIcon={<Play className="w-5 h-5" />}
+                onClick={handleStartAuction}
+                disabled={!canStart}
+              >
+                Start Auction
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!isCommissioner && (
+          <div className="mt-8 glass-panel p-8 text-center">
+            <Gavel className="w-10 h-10 mx-auto mb-3 text-live/70" />
+            <h3 className="text-xl font-bold text-white mb-1">Waiting for the Commissioner</h3>
+            <p className="text-white/50 text-sm">
+              The auction will begin once the Commissioner starts the room.
+            </p>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

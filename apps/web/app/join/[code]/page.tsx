@@ -3,6 +3,10 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
+import { Radio, User, Eye, ArrowRight, AlertTriangle, Trophy, Users } from "lucide-react";
 
 function getOrCreateAnonId(): string {
   if (typeof window === "undefined") return "";
@@ -24,7 +28,6 @@ export default function JoinRoomPage({ params }: { params: { code: string } }) {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Form states
   const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState<"TEAM_OWNER" | "SPECTATOR">("TEAM_OWNER");
   const [selectedTeamId, setSelectedTeamId] = useState("");
@@ -36,7 +39,6 @@ export default function JoinRoomPage({ params }: { params: { code: string } }) {
         if (data.ok) {
           setRoom(data.room);
           setTeams(data.teams);
-          // Set default team selection if any unclaimed teams exist
           const unclaimed = data.teams.filter((t: any) => !t.ownerParticipantId);
           if (unclaimed.length > 0) {
             setSelectedTeamId(unclaimed[0].id);
@@ -81,117 +83,191 @@ export default function JoinRoomPage({ params }: { params: { code: string } }) {
 
   if (loading) {
     return (
-      <div className="max-w-md mx-auto px-4 py-20 text-center text-slate-400">
-        Loading room details...
+      <div className="min-h-screen bg-base flex flex-col items-center justify-center text-white/50">
+        <div className="w-12 h-12 border-4 border-white/10 border-t-brand rounded-full animate-spin mb-6" />
+        <p className="text-lg font-medium">Loading room details...</p>
       </div>
     );
   }
 
   if (error && !room) {
     return (
-      <div className="max-w-md mx-auto px-4 py-20 text-center">
-        <h2 className="text-2xl font-bold text-red-400 mb-4">Error</h2>
-        <p className="text-slate-400 mb-6">{error}</p>
-        <button
-          onClick={() => router.push("/")}
-          className="bg-slate-800 hover:bg-slate-700 text-slate-100 px-6 py-2.5 rounded-lg transition"
-        >
-          Back to Home
-        </button>
+      <div className="min-h-screen bg-base flex flex-col items-center justify-center px-4">
+        <Card className="max-w-md w-full text-center">
+          <CardHeader>
+            <CardTitle className="text-danger flex items-center justify-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              Room Not Found
+            </CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="secondary" onClick={() => router.push("/")} className="w-full">
+              Back to Home
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   const unclaimedTeams = teams.filter((t) => !t.ownerParticipantId);
+  const canClaimTeam = role === "TEAM_OWNER" && unclaimedTeams.length > 0;
+  const isLate = room && room.status !== "LOBBY";
 
   return (
-    <div className="max-w-md mx-auto px-4 py-12 w-full flex-1 flex flex-col justify-center">
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 shadow-xl">
+    <div className="relative min-h-screen bg-base text-white flex flex-col items-center justify-center px-4 py-12">
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-brand/5 rounded-full blur-[140px]" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-brand2/5 rounded-full blur-[120px]" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-lg">
         <div className="text-center mb-8">
-          <span className="text-xs font-semibold text-blue-400 uppercase tracking-widest bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full mb-3 inline-block">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand/10 border border-brand/30 text-brand-light text-xs font-bold uppercase tracking-widest mb-6">
+            <Radio className="w-3.5 h-3.5" />
             Joining Room
-          </span>
-          <h1 className="text-2xl font-bold text-slate-100">{room?.name}</h1>
-          <p className="text-slate-400 font-mono mt-1 text-lg">Code: {code}</p>
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-white mb-3 font-display">
+            {room?.name}
+          </h1>
+          <div className="flex items-center justify-center gap-3">
+            <Badge variant="default" className="font-mono">
+              CODE: {code}
+            </Badge>
+            {isLate && (
+              <Badge variant="warning" pulse>
+                Auction in progress
+              </Badge>
+            )}
+          </div>
         </div>
 
-        {error && <p className="text-red-400 text-sm bg-red-950/40 border border-red-900 px-4 py-3 rounded-lg mb-6">{error}</p>}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-brand-light" />
+              Choose your seat
+            </CardTitle>
+            <CardDescription>
+              Enter your display name and pick a role. No account required.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <div className="bg-danger/10 border border-danger/20 text-danger px-4 py-3 rounded-xl text-sm text-center font-medium mb-5">
+                {error}
+              </div>
+            )}
 
-        <form onSubmit={handleJoin} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Display Name</label>
-            <input
-              type="text"
-              placeholder="Enter your name"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-blue-500"
-              required
-            />
-          </div>
+            <form onSubmit={handleJoin} className="space-y-5">
+              <div>
+                <label htmlFor="displayName" className="block text-xs font-bold uppercase tracking-widest text-white/40 mb-2">
+                  Display Name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                  <input
+                    id="displayName"
+                    type="text"
+                    placeholder="Enter your name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="input-field pl-12"
+                    required
+                  />
+                </div>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Select Role</label>
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => setRole("TEAM_OWNER")}
-                className={`py-3 px-4 rounded-lg font-semibold border transition text-center flex flex-col items-center justify-center ${
-                  role === "TEAM_OWNER"
-                    ? "bg-blue-600/10 border-blue-500 text-blue-400"
-                    : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
-                }`}
-              >
-                <span className="text-lg">🏏</span>
-                <span className="text-sm mt-1">Team Owner</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole("SPECTATOR")}
-                className={`py-3 px-4 rounded-lg font-semibold border transition text-center flex flex-col items-center justify-center ${
-                  role === "SPECTATOR"
-                    ? "bg-blue-600/10 border-blue-500 text-blue-400"
-                    : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
-                }`}
-              >
-                <span className="text-lg">👀</span>
-                <span className="text-sm mt-1">Spectator</span>
-              </button>
-            </div>
-          </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-white/40 mb-2">
+                  Select Role
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setRole("TEAM_OWNER")}
+                    className={`py-4 px-4 rounded-2xl font-semibold border transition-all text-center flex flex-col items-center justify-center gap-2 ${
+                      role === "TEAM_OWNER"
+                        ? "bg-brand/10 border-brand/40 text-brand-light shadow-glow"
+                        : "bg-white/[0.03] border-white/[0.08] text-white/60 hover:border-white/20"
+                    }`}
+                  >
+                    <Trophy className="w-6 h-6" />
+                    <span className="text-sm">Team Owner</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole("SPECTATOR")}
+                    className={`py-4 px-4 rounded-2xl font-semibold border transition-all text-center flex flex-col items-center justify-center gap-2 ${
+                      role === "SPECTATOR"
+                        ? "bg-brand2/10 border-brand2/40 text-brand2-light shadow-[0_0_20px_rgba(99,102,241,0.2)]"
+                        : "bg-white/[0.03] border-white/[0.08] text-white/60 hover:border-white/20"
+                    }`}
+                  >
+                    <Eye className="w-6 h-6" />
+                    <span className="text-sm">Spectator</span>
+                  </button>
+                </div>
+              </div>
 
-          {role === "TEAM_OWNER" && (
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Claim Franchise / Team</label>
-              {unclaimedTeams.length === 0 ? (
-                <p className="text-yellow-500 text-sm bg-yellow-950/40 border border-yellow-900 px-4 py-3 rounded-lg">
-                  All teams are already claimed. You can only join as a Spectator.
-                </p>
-              ) : (
-                <select
-                  value={selectedTeamId}
-                  onChange={(e) => setSelectedTeamId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-blue-500"
-                  required
-                >
-                  {unclaimedTeams.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      {team.name}
-                    </option>
-                  ))}
-                </select>
+              {role === "TEAM_OWNER" && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-white/40 mb-2">
+                    Claim Franchise
+                  </label>
+                  {unclaimedTeams.length === 0 ? (
+                    <div className="bg-warning/10 border border-warning/20 text-warning px-4 py-3 rounded-xl text-sm">
+                      All teams are already claimed. You can only join as a Spectator.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {unclaimedTeams.map((team) => (
+                        <button
+                          key={team.id}
+                          type="button"
+                          onClick={() => setSelectedTeamId(team.id)}
+                          className={`p-4 rounded-2xl border text-left transition-all ${
+                            selectedTeamId === team.id
+                              ? "bg-brand/10 border-brand/40 shadow-glow"
+                              : "bg-white/[0.03] border-white/[0.08] hover:border-white/20"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-white">{team.name}</span>
+                            {selectedTeamId === team.id && (
+                              <div className="size-5 rounded-full bg-brand flex items-center justify-center">
+                                <ArrowRight className="w-3 h-3 text-white" />
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-white/40 uppercase tracking-widest font-bold mt-1 block">
+                            Available
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
-            </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={submitLoading || (role === "TEAM_OWNER" && unclaimedTeams.length === 0)}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition disabled:opacity-50"
-          >
-            {submitLoading ? "Joining..." : "Enter Lobby"}
-          </button>
-        </form>
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full"
+                disabled={submitLoading || (role === "TEAM_OWNER" && unclaimedTeams.length === 0)}
+                isLoading={submitLoading}
+                rightIcon={<ArrowRight className="w-5 h-5" />}
+              >
+                {submitLoading ? "Joining..." : "Enter Lobby"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <p className="mt-6 text-center text-sm text-white/30">
+          Joining as {role === "TEAM_OWNER" ? "a bidding team owner" : "a view-only spectator"}.
+        </p>
       </div>
     </div>
   );

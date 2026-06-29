@@ -4,8 +4,10 @@ import { startTimer, clearTimer } from "./timer.js";
 import {
   bidPlaceSchema,
   roomActionSchema,
-  forceResolveSchema
+  forceResolveSchema,
+  kickParticipantSchema
 } from "@bidstand/shared";
+import { broadcastLobbyState } from "../lobby.js";
 
 // In-memory map to store remaining seconds for paused rooms
 const pausedTimeRemaining = new Map<string, number>();
@@ -628,6 +630,133 @@ export function handleAuctionConnection(socket: Socket, payload: SocketUserPaylo
     } catch (err: any) {
       console.error("Error placing bid:", err);
       socket.emit("bid:rejected", { reason: "Internal server error placing bid" });
+    }
+  });
+
+  // 7. Kick Participant
+  socket.on("participant:kick", async (data) => {
+    try {
+      const parsed = kickParticipantSchema.parse(data);
+      if (role !== "COMMISSIONER") {
+        return socket.emit("error", { message: "Only the Commissioner can kick participants" });
+      }
+
+      const targetParticipant = await prisma.participant.findUnique({
+        where: { id: parsed.participantId },
+        include: { team: true }
+      });
+
+      if (!targetParticipant) {
+        return socket.emit("error", { message: "Participant not found" });
+      }
+
+      if (targetParticipant.roomId !== roomId) {
+        return socket.emit("error", { message: "Participant is not in this room" });
+      }
+
+      if (targetParticipant.role === "COMMISSIONER") {
+        return socket.emit("error", { message: "The Commissioner cannot be kicked" });
+      }
+
+      // If target participant owns a team, release the team
+      if (targetParticipant.role === "TEAM_OWNER") {
+        await prisma.team.updateMany({
+          where: { ownerParticipantId: targetParticipant.id },
+          data: { ownerParticipantId: null }
+        });
+      }
+
+      // Find target participant's socket(s) and disconnect them after informing them
+      const namespace = socket.nsp;
+      const socketsMap = await namespace.fetchSockets();
+      for (const s of socketsMap) {
+        const userPayload = (s as any).user as SocketUserPayload;
+        if (userPayload && userPayload.participantId === targetParticipant.id) {
+          s.emit("participant:kicked", { message: "You have been kicked by the Commissioner." });
+          s.disconnect(true);
+        }
+      }
+
+      // Delete target participant
+      await prisma.participant.delete({
+        where: { id: targetParticipant.id }
+      });
+
+      // Broadcast room state
+      const updatedRoom = await prisma.room.findUnique({ where: { id: roomId } });
+      if (updatedRoom) {
+        if (updatedRoom.status === "LOBBY") {
+          await broadcastLobbyState(io, roomId);
+        } else {
+          await broadcastRoomState(io, roomId);
+        }
+      }
+    } catch (err: any) {
+      console.error("Error kicking participant:", err);
+      socket.emit("error", { message: err.message || "Failed to kick participant" });
+    }
+  });
+
+  // 8. Room Disband
+  socket.on("room:disband", async (data) => {
+    try {
+      const parsed = roomActionSchema.parse(data);
+      if (role !== "COMMISSIONER") {
+        return socket.emit("error", { message: "Only the Commissioner can disband the room" });
+      }
+
+      // Notify everyone in the room
+      io.to(roomId).emit("room:disbanded", { message: "The auction has been disbanded by the Commissioner." });
+
+      // Clean up timer
+      clearTimer(roomId);
+      pausedTimeRemaining.delete(roomId);
+
+      // Perform cascade deletion in database
+      await prisma.$transaction(async (tx) => {
+        // 1. Clear room currentItem reference
+        await tx.room.update({
+          where: { id: roomId },
+          data: { currentItemId: null }
+        });
+
+        // 2. Delete all Bids belonging to items or teams in this room
+        await tx.bid.deleteMany({
+          where: {
+            team: { roomId: roomId }
+          }
+        });
+
+        // 3. Delete all Items
+        await tx.item.deleteMany({
+          where: { roomId }
+        });
+
+        // 4. Delete all Teams
+        await tx.team.deleteMany({
+          where: { roomId }
+        });
+
+        // 5. Delete all Participants
+        await tx.participant.deleteMany({
+          where: { roomId }
+        });
+
+        // 6. Delete Room
+        await tx.room.delete({
+          where: { id: roomId }
+        });
+      });
+
+      // Disconnect all sockets currently in this room
+      const namespace = socket.nsp;
+      const socketsMap = await namespace.in(roomId).fetchSockets();
+      for (const s of socketsMap) {
+        s.disconnect(true);
+      }
+    } catch (err: any) {
+      console.error("Error disbanding room:", err);
+      socket.emit("error", { message: err.message || "Failed to disband room" });
     }
   });
 }

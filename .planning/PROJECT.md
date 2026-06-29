@@ -12,17 +12,22 @@ Realtime server-authoritative auction logic updates across all tabs instantly wi
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Create auction room with configurable parameters (purse, squad cap, timer, increments, role caps, player pool) — **Phase 1**
+- [x] Join room via 6-character room code or shareable link (identity as Commissioner, Team Owner, or Spectator) — **Phase 1**
+- [x] Server-authoritative countdown timer resetting on valid new bids — **Phase 2**
+- [x] Realtime socket-based bid propagation and verification (purse, increments, squad limits, status check) — **Phase 2**
+- [x] Sold/unsold outcome resolution upon timer expiry — **Phase 2**
+- [x] Room state persistence to PostgreSQL database — **Phase 1-2**
+- [x] Show final results page with squad summary, spends, and remaining purses — **Phase 3**
 
 ### Active
 
-- [ ] Create auction room with configurable parameters (purse, squad cap, timer, increments, role caps, player pool)
-- [ ] Join room via 6-character room code or shareable link (identity as Commissioner, Team Owner, or Spectator)
-- [ ] Server-authoritative countdown timer resetting on valid new bids
-- [ ] Realtime socket-based bid propagation and verification (purse, increments, squad limits, status check)
-- [ ] Sold/unsold outcome resolution upon timer expiry
-- [ ] Room state persistence to PostgreSQL database
-- [ ] Show final results page with squad summary, spends, and remaining purses
+- [ ] One-click demo room creation from landing page
+- [ ] Sound notifications for bid placed, timer < 5s, SOLD/UNSOLD resolution
+- [ ] Toast notifications replacing alert() for kick, disband, errors
+- [ ] CSV export on results page
+- [ ] Keyboard shortcuts (Space to bid, P to pause/resume)
+- [ ] Spectator count badge in auction header
 
 ### Out of Scope
 
@@ -67,4 +72,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-26 after initialization*
+*Last updated: 2026-06-27 after Phase 4 planning*

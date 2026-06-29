@@ -27,6 +27,24 @@ export default function LandingPage() {
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
+  // Demo state
+  const [demoLoading, setDemoLoading] = useState(false);
+
+  const handleTryDemo = async () => {
+    setDemoLoading(true);
+    try {
+      const data = await apiRequest("/api/demo/room", "POST");
+      if (data.ok) {
+        router.push(`/room/${data.room.code}/lobby`);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create demo room";
+      alert(message); // Will be replaced with toast later
+    } finally {
+      setDemoLoading(false);
+    }
+  };
+
   const openJoin = () => {
     setJoinError("");
     joinDialogRef.current?.showModal();
@@ -179,6 +197,14 @@ export default function LandingPage() {
             >
               <Users className="size-5" aria-hidden="true" />
               Join a Room
+            </button>
+            <button
+              onClick={handleTryDemo}
+              disabled={demoLoading}
+              className="w-full sm:w-auto inline-flex h-14 px-8 items-center justify-center gap-2 rounded-xl bg-[#1B2233] border border-[#262E40] text-[#F4F6FA] text-lg font-bold hover:bg-[#262E40] disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5B83D] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0F17]"
+            >
+              <Zap className="size-5" aria-hidden="true" />
+              Try Demo Auction
             </button>
             <button
               onClick={() => openAuth("signup")}

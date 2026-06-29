@@ -95,6 +95,8 @@ export default function CreateRoomPage() {
   const [squadSizeCap, setSquadSizeCap] = useState(18);
   const [timerSeconds, setTimerSeconds] = useState(15);
 
+  const [auctionMode, setAuctionMode] = useState<"demo" | "custom">("demo");
+
   // Teams state
   const [teams, setTeams] = useState<VisualTeam[]>(
     PRESET_TEAMS.map((name, i) => ({ id: `team-${i}`, name }))
@@ -113,6 +115,20 @@ export default function CreateRoomPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const handleModeChange = (mode: "demo" | "custom") => {
+    setAuctionMode(mode);
+    setError("");
+    if (mode === "demo") {
+      setTeams(PRESET_TEAMS.map((name, i) => ({ id: `team-${i}`, name })));
+      setPlayers(PRESET_PLAYERS.map((p, i) => ({ id: `player-${i}`, ...p })));
+      setNewPlayerCategory("Batsman");
+    } else {
+      setTeams([]);
+      setPlayers([]);
+      setNewPlayerCategory("Item");
+    }
+  };
 
   useGSAP(() => {
     gsap.fromTo(
@@ -258,6 +274,39 @@ export default function CreateRoomPage() {
 
         <form onSubmit={handleSubmit} className="space-y-8">
           
+          {/* Auction Mode Selection */}
+          <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8 backdrop-blur-xl gsap-slide-up flex flex-col sm:flex-row justify-between items-center gap-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-fuchsia-500/5 rounded-full blur-[100px] pointer-events-none" />
+            <div className="relative z-10">
+              <h2 className="text-2xl font-bold">Select Auction Mode</h2>
+              <p className="text-base text-white/50 mt-1">Choose between a pre-configured IPL demo and a fully customized auction.</p>
+            </div>
+            <div className="relative z-10 flex bg-black/40 p-1.5 rounded-full border border-white/10 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleModeChange("demo")}
+                className={`px-6 py-3 rounded-full text-sm font-bold transition-all duration-300 ${
+                  auctionMode === "demo"
+                    ? "bg-white text-black shadow-lg scale-105"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                Demo / Cricket Mode
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeChange("custom")}
+                className={`px-6 py-3 rounded-full text-sm font-bold transition-all duration-300 ${
+                  auctionMode === "custom"
+                    ? "bg-white text-black shadow-lg scale-105"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                Custom / Actual Mode
+              </button>
+            </div>
+          </div>
+
           {/* Room Settings */}
           <div className="bg-white/5 border border-white/10 rounded-[2rem] p-8 md:p-12 backdrop-blur-xl gsap-slide-up relative overflow-hidden">
             <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
@@ -337,24 +386,26 @@ export default function CreateRoomPage() {
             
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-2xl font-bold flex items-center gap-3">
-                <Users weight="fill" className="text-fuchsia-400" /> Franchises ({teams.length})
+                <Users weight="fill" className="text-fuchsia-400" /> {auctionMode === "demo" ? "Franchises" : "Teams / Bidders"} ({teams.length})
               </h2>
-              <div className="flex gap-4">
-                <button
-                  type="button"
-                  onClick={handleLoadPresetTeams}
-                  className="text-sm font-bold tracking-widest uppercase text-white/50 hover:text-white transition"
-                >
-                  Load Presets
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearTeams}
-                  className="text-sm font-bold tracking-widest uppercase text-rose-400/50 hover:text-rose-400 transition"
-                >
-                  Clear All
-                </button>
-              </div>
+              {auctionMode === "demo" && (
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={handleLoadPresetTeams}
+                    className="text-sm font-bold tracking-widest uppercase text-white/50 hover:text-white transition"
+                  >
+                    Load Presets
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearTeams}
+                    className="text-sm font-bold tracking-widest uppercase text-rose-400/50 hover:text-rose-400 transition"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col md:flex-row gap-4 mb-8">
@@ -411,32 +462,36 @@ export default function CreateRoomPage() {
 
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-2xl font-bold flex items-center gap-3">
-                <Trophy weight="fill" className="text-emerald-400" /> Draft Pool ({players.length})
+                <Trophy weight="fill" className="text-emerald-400" /> {auctionMode === "demo" ? "Draft Pool" : "Item Pool"} ({players.length})
               </h2>
-              <div className="flex gap-4">
-                <button
-                  type="button"
-                  onClick={handleLoadPresetPlayers}
-                  className="text-sm font-bold tracking-widest uppercase text-white/50 hover:text-white transition"
-                >
-                  Load Presets
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearPlayers}
-                  className="text-sm font-bold tracking-widest uppercase text-rose-400/50 hover:text-rose-400 transition"
-                >
-                  Clear All
-                </button>
-              </div>
+              {auctionMode === "demo" && (
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={handleLoadPresetPlayers}
+                    className="text-sm font-bold tracking-widest uppercase text-white/50 hover:text-white transition"
+                  >
+                    Load Presets
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearPlayers}
+                    className="text-sm font-bold tracking-widest uppercase text-rose-400/50 hover:text-rose-400 transition"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="bg-black/30 border border-white/5 rounded-[2rem] p-6 md:p-8 mb-10 grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
               <div className="md:col-span-5">
-                <label className="block text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-3">Player Name</label>
+                <label className="block text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-3">
+                  {auctionMode === "demo" ? "Player Name" : "Item Name"}
+                </label>
                 <input
                   type="text"
-                  placeholder="e.g. AB de Villiers"
+                  placeholder={auctionMode === "demo" ? "e.g. AB de Villiers" : "e.g. Rare Sneaker, Art Painting"}
                   value={newPlayerName}
                   onChange={(e) => setNewPlayerName(e.target.value)}
                   className="w-full bg-black/60 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-emerald-500 focus:bg-white/5 transition-all text-lg font-medium"
@@ -445,16 +500,26 @@ export default function CreateRoomPage() {
 
               <div className="md:col-span-3">
                 <label className="block text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-3">Category</label>
-                <select
-                  value={newPlayerCategory}
-                  onChange={(e) => setNewPlayerCategory(e.target.value)}
-                  className="w-full bg-black/60 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-emerald-500 focus:bg-white/5 transition-all text-lg font-medium appearance-none"
-                >
-                  <option value="Batsman">Batsman</option>
-                  <option value="Bowler">Bowler</option>
-                  <option value="All-rounder">All-rounder</option>
-                  <option value="Wicketkeeper">Wicketkeeper</option>
-                </select>
+                {auctionMode === "demo" ? (
+                  <select
+                    value={newPlayerCategory}
+                    onChange={(e) => setNewPlayerCategory(e.target.value)}
+                    className="w-full bg-black/60 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-emerald-500 focus:bg-white/5 transition-all text-lg font-medium appearance-none"
+                  >
+                    <option value="Batsman">Batsman</option>
+                    <option value="Bowler">Bowler</option>
+                    <option value="All-rounder">All-rounder</option>
+                    <option value="Wicketkeeper">Wicketkeeper</option>
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="e.g. Collectible, Art"
+                    value={newPlayerCategory}
+                    onChange={(e) => setNewPlayerCategory(e.target.value)}
+                    className="w-full bg-black/60 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-emerald-500 focus:bg-white/5 transition-all text-lg font-medium"
+                  />
+                )}
               </div>
 
               <div className="md:col-span-4">
@@ -472,7 +537,7 @@ export default function CreateRoomPage() {
                     className="flex-1 bg-white text-black hover:bg-neutral-200 font-bold rounded-2xl flex items-center justify-center gap-2 transition-all text-lg"
                   >
                     <UserPlus weight="bold" />
-                    Add
+                    Add {auctionMode === "demo" ? "Player" : "Item"}
                   </button>
                 </div>
               </div>
@@ -481,12 +546,18 @@ export default function CreateRoomPage() {
             {players.length === 0 ? (
               <div className="text-center py-20 bg-black/20 border border-dashed border-white/10 rounded-[2rem]">
                 <Trophy weight="fill" className="w-16 h-16 text-white/20 mx-auto mb-6" />
-                <p className="text-white/40 text-xl font-medium">No players in draft pool.</p>
+                <p className="text-white/40 text-xl font-medium">
+                  {auctionMode === "demo" ? "No players in draft pool." : "No items in pool."}
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {players.map((player) => {
-                  const style = CATEGORY_STYLES[player.category] || CATEGORY_STYLES.Batsman;
+                  const style = CATEGORY_STYLES[player.category] || {
+                    bg: "bg-slate-500/10",
+                    text: "text-slate-400",
+                    gradient: "from-slate-500 to-slate-700",
+                  };
                   return (
                     <div
                       key={player.id}

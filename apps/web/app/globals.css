@@ -4,10 +4,15 @@
 
 :root {
   /* Bidstand Design System — see docs/DESIGN_SYSTEM.md */
-  --bg-base: #0B0F17;
+  --bg-base: #050508;
+  --bg-page: #0B0F17;
   --bg-surface: #131826;
   --bg-surface-raised: #1B2233;
-  --border-subtle: #262E40;
+  --bg-surface-glass: rgba(255, 255, 255, 0.05);
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
 
   --text-primary: #F4F6FA;
   --text-secondary: #9AA4B8;
@@ -18,31 +23,35 @@
   --accent-unsold: #8893A6;
   --accent-danger: #E3564B;
 
-  --background: 222 47% 5%;
+  --background: 222 47% 3%;
   --foreground: 220 27% 95%;
-  --card: 222 38% 10%;
+  --card: 222 38% 8%;
   --card-foreground: 220 27% 95%;
-  --popover: 222 38% 10%;
+  --popover: 222 38% 8%;
   --popover-foreground: 220 27% 95%;
   --primary: 43 91% 60%;
   --primary-foreground: 222 47% 5%;
-  --secondary: 222 38% 14%;
+  --secondary: 222 38% 12%;
   --secondary-foreground: 220 27% 95%;
-  --muted: 222 30% 12%;
+  --muted: 222 30% 10%;
   --muted-foreground: 220 15% 60%;
-  --accent: 222 38% 14%;
+  --accent: 222 38% 12%;
   --accent-foreground: 220 27% 95%;
   --destructive: 4 70% 56%;
   --destructive-foreground: 220 27% 95%;
-  --border: 222 30% 20%;
-  --input: 222 30% 20%;
+  --border: 222 30% 14%;
+  --input: 222 30% 14%;
   --ring: 43 91% 60%;
   --radius: 0.75rem;
 }
 
 @layer base {
   * {
-    @apply border-[#262E40];
+    @apply border-white/10;
+  }
+
+  html {
+    scroll-behavior: smooth;
   }
 
   body {
@@ -58,6 +67,37 @@
   code, .font-mono {
     font-family: var(--font-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   }
+
+  ::selection {
+    background-color: rgba(192, 38, 211, 0.4);
+    color: #fff;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-white/5 border border-white/10 backdrop-blur-xl rounded-3xl;
+  }
+
+  .glass-card {
+    @apply bg-white/[0.03] border border-white/[0.08] rounded-2xl;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 h-14 px-8 rounded-xl bg-gradient-to-r from-brand to-brand2 text-white font-bold text-lg transition-all duration-200 hover:shadow-glow hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-base disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-white/5 border border-white/10 text-white font-semibold transition-all duration-200 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-base disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-live {
+    @apply inline-flex items-center justify-center gap-2 h-16 px-8 rounded-xl bg-live text-base font-black text-base-foreground transition-all duration-200 hover:shadow-glow-live hover:scale-[1.01] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-live focus-visible:ring-offset-2 focus-visible:ring-offset-base disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .input-field {
+    @apply w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-brand focus:bg-white/[0.04] transition-colors;
+  }
 }
 
 @layer utilities {
@@ -67,5 +107,18 @@
 
   .text-pretty {
     text-wrap: pretty;
+  }
+
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }

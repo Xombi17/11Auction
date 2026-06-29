@@ -1,6 +1,7 @@
 import "./globals.css";
 import React from "react";
 import { Inter, Archivo, IBM_Plex_Mono } from "next/font/google";
+import { Providers } from "@/components/Providers";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -35,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${archivo.variable} ${ibmPlexMono.variable}`}>
       <body className="min-h-dvh bg-[#0B0F17] text-[#F4F6FA] font-sans antialiased selection:bg-[#F5B83D] selection:text-[#0B0F17]">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

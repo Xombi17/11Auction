@@ -161,6 +161,11 @@ export async function GET(req: NextRequest) {
             items: true,
           },
         },
+        teams: {
+          include: {
+            players: true
+          }
+        }
       },
       orderBy: { createdAt: "desc" },
     });
@@ -175,6 +180,13 @@ export async function GET(req: NextRequest) {
         teamCount: r._count.teams,
         playerCount: r._count.items,
         createdAt: r.createdAt,
+        teams: r.teams.map((t) => ({
+          id: t.id,
+          name: t.name,
+          purseRemaining: t.purseRemaining,
+          purseTotal: t.purseTotal,
+          playersCount: t.players.length
+        }))
       })),
     });
   } catch (error: any) {

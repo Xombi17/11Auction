@@ -6,7 +6,7 @@ import Link from "next/link";
 import { apiRequest } from "@/lib/api";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
-import { ArrowRight, Plus, Trophy } from "@phosphor-icons/react";
+import { ArrowRight, Plus, Trophy, Trash } from "@phosphor-icons/react";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -33,6 +33,22 @@ export default function DashboardPage() {
     }
     loadRooms();
   }, [router]);
+
+  const handleDeleteRoom = async (code: string) => {
+    if (!window.confirm("Are you sure you want to delete this room? All related data (teams, items, bids, participants) will be permanently lost.")) {
+      return;
+    }
+    try {
+      const res = await apiRequest(`/api/rooms/${code}`, "DELETE");
+      if (res.ok) {
+        setRooms(prev => prev.filter(r => r.code !== code));
+      } else {
+        alert(res.message || "Failed to delete room");
+      }
+    } catch (err: any) {
+      alert(err.message || "An error occurred while deleting the room");
+    }
+  };
 
   useGSAP(() => {
     if (!loading) {
@@ -112,40 +128,76 @@ export default function DashboardPage() {
                     <span className="bg-black/50 px-4 py-2 text-sm font-mono tracking-[0.2em] font-bold text-fuchsia-400 rounded-full border border-fuchsia-500/20">
                       {room.code}
                     </span>
-                    <span
-                      className={`text-xs px-3 py-1.5 rounded-full font-bold uppercase tracking-widest ${
-                        room.status === "LOBBY"
-                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                          : room.status === "AUCTION"
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 animate-pulse shadow-[0_0_15px_rgba(52,211,153,0.3)]"
-                          : "bg-white/10 text-white/60 border border-white/10"
-                      }`}
-                    >
-                      {room.status}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`text-xs px-3 py-1.5 rounded-full font-bold uppercase tracking-widest ${
+                          room.status === "LOBBY"
+                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                            : room.status === "AUCTION"
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 animate-pulse shadow-[0_0_15px_rgba(52,211,153,0.3)]"
+                            : "bg-white/10 text-white/60 border border-white/10"
+                        }`}
+                      >
+                        {room.status}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleDeleteRoom(room.code);
+                        }}
+                        className="relative z-20 text-white/30 hover:text-rose-500 p-2 rounded-xl hover:bg-white/5 transition-all"
+                        title="Delete Room"
+                      >
+                        <Trash weight="bold" size={20} />
+                      </button>
+                    </div>
                   </div>
                   
                   <h3 className="text-3xl font-bold mb-8 truncate">{room.name}</h3>
                   
-                  <div className="space-y-4 text-lg text-white/60 mb-10">
-                    <div className="flex justify-between items-center pb-4 border-b border-white/5">
-                      <span className="uppercase text-xs tracking-widest font-bold">Franchises</span>
-                      <span className="font-medium text-white">{room.teamCount}</span>
+                  {room.status === "COMPLETED" ? (
+                    <div className="space-y-3 mb-10 max-h-[160px] overflow-y-auto pr-1">
+                      <span className="uppercase text-xs tracking-widest font-bold text-white/40 block mb-2">Final Standings</span>
+                      {room.teams?.map((team: any) => (
+                        <div key={team.id} className="flex justify-between items-center text-sm pb-2 border-b border-white/5 last:border-0">
+                          <span className="font-medium truncate max-w-[130px]">{team.name}</span>
+                          <span className="font-mono text-xs text-white/80">
+                            {team.playersCount} items | ₹{(team.purseRemaining / 100).toFixed(2)} Cr left
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                    <div className="flex justify-between items-center pb-4 border-b border-white/5">
-                      <span className="uppercase text-xs tracking-widest font-bold">Draft Pool</span>
-                      <span className="font-medium text-white">{room.playerCount}</span>
+                  ) : (
+                    <div className="space-y-4 text-lg text-white/60 mb-10">
+                      <div className="flex justify-between items-center pb-4 border-b border-white/5">
+                        <span className="uppercase text-xs tracking-widest font-bold">Franchises</span>
+                        <span className="font-medium text-white">{room.teamCount}</span>
+                      </div>
+                      <div className="flex justify-between items-center pb-4 border-b border-white/5">
+                        <span className="uppercase text-xs tracking-widest font-bold">Draft Pool</span>
+                        <span className="font-medium text-white">{room.playerCount}</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
-                <Link
-                  href={`/room/${room.code}/lobby`}
-                  className="relative z-10 w-full bg-white text-black font-bold py-4 rounded-xl text-center flex items-center justify-center gap-2 hover:bg-neutral-200 transition-colors"
-                >
-                  Enter Command Center
-                  <ArrowRight weight="bold" />
-                </Link>
+                {room.status === "COMPLETED" ? (
+                  <Link
+                    href={`/room/${room.code}/results`}
+                    className="relative z-10 w-full bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-extrabold py-4 rounded-xl text-center flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                  >
+                    View Results
+                    <Trophy weight="fill" className="w-5 h-5" />
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/room/${room.code}/lobby`}
+                    className="relative z-10 w-full bg-white text-black font-bold py-4 rounded-xl text-center flex items-center justify-center gap-2 hover:bg-neutral-200 transition-colors"
+                  >
+                    Enter Command Center
+                    <ArrowRight weight="bold" />
+                  </Link>
+                )}
               </div>
             ))}
           </div>

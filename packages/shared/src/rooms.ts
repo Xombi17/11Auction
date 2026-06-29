@@ -123,3 +123,10 @@ export const forceResolveSchema = z.object({
 
 export type ForceResolveInput = z.infer<typeof forceResolveSchema>;
 
+export const kickParticipantSchema = z.object({
+  roomCode: z.string().length(6, "Room code must be exactly 6 characters"),
+  participantId: z.string().min(1, "Participant ID is required"),
+});
+
+export type KickParticipantInput = z.infer<typeof kickParticipantSchema>;
+
