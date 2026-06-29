@@ -3,6 +3,7 @@
 import React, { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 import { Zap, X, ArrowRight, Gavel, Users, Radio } from "lucide-react";
 
 type AuthMode = "login" | "signup";
@@ -30,6 +31,8 @@ export default function LandingPage() {
   // Demo state
   const [demoLoading, setDemoLoading] = useState(false);
 
+  const { showToast } = useToast();
+
   const handleTryDemo = async () => {
     setDemoLoading(true);
     try {
@@ -39,7 +42,7 @@ export default function LandingPage() {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create demo room";
-      alert(message); // Will be replaced with toast later
+      showToast({ type: "error", title: message });
     } finally {
       setDemoLoading(false);
     }

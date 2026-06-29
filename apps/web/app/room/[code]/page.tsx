@@ -262,33 +262,6 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
     return 5;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-base flex flex-col items-center justify-center text-white/50">
-        <div className="w-12 h-12 border-4 border-white/10 border-t-brand rounded-full animate-spin mb-6" />
-        <p className="text-lg font-medium">Entering live auction room...</p>
-      </div>
-    );
-  }
-
-  if (error && !room) {
-    return (
-      <div className="min-h-screen bg-base flex flex-col items-center justify-center px-4">
-        <Card className="max-w-md w-full text-center">
-          <CardHeader>
-            <CardTitle className="text-danger">Connection Error</CardTitle>
-            <CardDescription>{error}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button variant="secondary" onClick={() => router.push("/")} className="w-full">
-              Back to Home
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   const currentItem = room?.currentItem;
   const bids = currentItem?.bids || [];
   const highestBid = bids[0] || null;
@@ -348,7 +321,7 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
       title: "Disband Auction?",
       message: "This will delete the room and all its data permanently.",
       action: { label: "Confirm", onClick: () => socket.emit("room:disband", { roomCode: code }) },
-      duration: 0, // Don't auto-dismiss
+      duration: 0,
     });
   };
 
@@ -387,6 +360,33 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [canPlaceBid, isBidding, role, room?.status, handlePlaceBid, handlePause, handleResume]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-base flex flex-col items-center justify-center text-white/50">
+        <div className="w-12 h-12 border-4 border-white/10 border-t-brand rounded-full animate-spin mb-6" />
+        <p className="text-lg font-medium">Entering live auction room...</p>
+      </div>
+    );
+  }
+
+  if (error && !room) {
+    return (
+      <div className="min-h-screen bg-base flex flex-col items-center justify-center px-4">
+        <Card className="max-w-md w-full text-center">
+          <CardHeader>
+            <CardTitle className="text-danger">Connection Error</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="secondary" onClick={() => router.push("/")} className="w-full">
+              Back to Home
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen bg-base text-white flex flex-col w-full overflow-hidden">

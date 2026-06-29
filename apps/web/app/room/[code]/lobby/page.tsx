@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
+import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
@@ -38,6 +39,7 @@ export default function LobbyPage({ params }: { params: { code: string } }) {
   const [isCommissioner, setIsCommissioner] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [socket, setSocket] = useState<any>(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     let active = true;
@@ -104,13 +106,13 @@ export default function LobbyPage({ params }: { params: { code: string } }) {
           s.on("room:disbanded", (data: any) => {
             sessionStorage.removeItem(`bidstand_token_${code}`);
             router.push("/");
-            alert(data.message || "The auction has been disbanded by the Commissioner.");
+            showToast({ type: "warning", title: data.message || "The auction has been disbanded by the Commissioner.", duration: 5000 });
           });
 
           s.on("participant:kicked", (data: any) => {
             sessionStorage.removeItem(`bidstand_token_${code}`);
             router.push("/");
-            alert(data.message || "You have been kicked from the room by the Commissioner.");
+            showToast({ type: "warning", title: data.message || "You have been kicked from the room by the Commissioner.", duration: 5000 });
           });
 
           s.on("error", (err: any) => {
