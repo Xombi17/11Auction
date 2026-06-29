@@ -452,7 +452,7 @@ export default function LiveAuctionPage({ params }: { params: { code: string } }
                 <span className="text-xs text-white/40 font-mono">CODE: {code}</span>
                 {/* Spectator count badge */}
                 {participants && participants.length > 0 && (
-                  <Badge variant="ghost" className="gap-1.5">
+                  <Badge variant="default" className="gap-1.5">
                     <Eye className="w-3 h-3" />
                     {participants.filter((p: any) => p.role === "SPECTATOR" || (p.role === "TEAM_OWNER" && !p.connected)).length} watching
                   </Badge>
